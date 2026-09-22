@@ -204,3 +204,58 @@ body { background: var(--bg); color: var(--ink); }
   min-width: 34px; text-align: right; font-variant-numeric: tabular-nums;
   color: var(--ink); font-size: 12.5px;
 }
+
+/* ── вход в комнату ───────────────────────────────────── */
+.gate {
+  position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+  padding: 24px; background: linear-gradient(160deg, #eef2f8 0%, #f7f8fa 60%);
+}
+.gate-box {
+  width: min(420px, 100%); display: flex; flex-direction: column; gap: 14px;
+  padding: 28px; background: var(--card); border: 1px solid var(--line);
+  border-radius: 14px; box-shadow: 0 12px 40px rgba(16, 32, 44, 0.12);
+}
+.gate-title { margin: 0; font-size: 22px; letter-spacing: -0.01em; }
+.gate-sub { margin: -8px 0 4px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.gate-tabs { display: flex; gap: 6px; }
+.gate-tabs button {
+  flex: 1; padding: 8px; font-size: 13px; cursor: pointer; color: var(--muted);
+  background: #f1f5f9; border: 1px solid transparent; border-radius: 8px;
+}
+.gate-tabs button.on { background: #fff; border-color: var(--line); color: var(--ink); font-weight: 600; }
+.gate-field { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; color: var(--muted); }
+.gate-field input {
+  padding: 9px 11px; font: inherit; font-size: 14px; color: var(--ink);
+  border: 1px solid var(--line); border-radius: 8px;
+}
+.gate-field input:focus { outline: 2px solid var(--root); outline-offset: -1px; }
+.gate-go {
+  padding: 11px; font-size: 14px; font-weight: 600; color: #fff; cursor: pointer;
+  background: var(--root); border: none; border-radius: 9px;
+}
+.gate-go:disabled { background: #b8c4d4; cursor: default; }
+.gate-error {
+  padding: 9px 11px; font-size: 12.5px; line-height: 1.45; color: #7f1d1d;
+  background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px;
+}
+.gate-note { margin: 0; font-size: 11.5px; line-height: 1.5; color: var(--muted); }
+.gate-local {
+  margin-top: 2px; padding: 7px; font-size: 12.5px; color: var(--muted);
+  background: none; border: 1px solid var(--line); border-radius: 8px; cursor: pointer;
+}
+.gate-local:hover { background: #f1f5f9; }
+
+/* ── индикатор комнаты ────────────────────────────────── */
+.bar-room {
+  display: flex; align-items: center; gap: 7px; padding: 4px 10px;
+  font-size: 12.5px; background: #f1f5f9; border: 1px solid var(--line); border-radius: 8px;
+}
+.bar-room-state { color: var(--muted); font-size: 11.5px; }
+.bar-room-saving .bar-room-state { color: var(--root); }
+.bar-room-error { background: #fef2f2; border-color: #fecaca; }
+.bar-room-error .bar-room-state { color: #b91c1c; }
+.bar-room-out {
+  border: none; background: none; cursor: pointer; color: var(--muted);
+  font-size: 11.5px; text-decoration: underline; padding: 0;
+}
+.bar-room-out:hover { color: var(--ink); }

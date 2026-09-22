@@ -19,6 +19,9 @@ import { exportDoc } from './csv/serialize';
 import { parseDoc } from './csv/parse';
 import { loadDoc, makeDebouncedSave } from './storage/persist';
 import { PromptDialog } from './PromptDialog';
+import { RoomGate } from './rooms/RoomGate';
+import { useRoom } from './rooms/useRoom';
+import { useSync } from './rooms/useSync';
 import { layoutTree, MAX_WIDTH, MIN_WIDTH } from './layout';
 
 const nodeTypes = { discuss: DiscussNode };
@@ -36,6 +39,12 @@ function Canvas() {
   const applyLayout = useDoc((s) => s.applyLayout);
   const [note, setNote] = useState<string | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
+  const roomName = useRoom((s) => s.name);
+  const roomSync = useRoom((s) => s.sync);
+  const roomDirty = useRoom((s) => s.dirty);
+  const roomError = useRoom((s) => s.error);
+  const leaveRoom = useRoom((s) => s.leave);
+  useSync();
   const filesRef = useRef<HTMLInputElement>(null);
   const save = useMemo(() => makeDebouncedSave(500), []);
 
@@ -114,6 +123,15 @@ function Canvas() {
         <strong>Tree Discuss</strong>
         <span className="bar-hint">Выдели текст в узле → «Ответить»</span>
         <span className="bar-grow" />
+        {roomName && (
+          <span className={`bar-room bar-room-${roomSync}`} title={roomError ?? "Комната синхронизируется каждые 10 секунд"}>
+            <strong>{roomName}</strong>
+            <span className="bar-room-state">
+              {roomSync === "saving" ? "сохраняю…" : roomSync === "error" ? "ошибка" : roomDirty ? "есть правки" : "сохранено"}
+            </span>
+            <button className="bar-room-out" onClick={leaveRoom} title="Выйти из комнаты">выйти</button>
+          </span>
+        )}
         <label className="bar-me">
           Я:
           <input
@@ -170,6 +188,13 @@ function Canvas() {
 }
 
 export default function App() {
+  const roomName = useRoom((s) => s.name);
+  const [local, setLocal] = useState(false);
+
+  // Канвас открывается только после входа: иначе работа началась бы в пустоте,
+  // и первые же правки некуда было бы сохранять.
+  if (!roomName && !local) return <RoomGate onLocal={() => setLocal(true)} />;
+
   return (
     <ReactFlowProvider>
       <Canvas />
