@@ -30,12 +30,16 @@ export function RoomGate({ onLocal }: { onLocal: () => void }) {
         // Новая комната начинается с одного корневого узла, а не с копии
         // того, что случайно осталось на экране от прошлой работы.
         const fresh: DocState = { nodes: [nodes[0]], reactions: [], width };
-        await createRoom(room, password, fresh);
+        const at = await createRoom(room, password, fresh);
         replaceAll(fresh);
-      } else {
-        replaceAll(await openRoom(room, password));
+        enter(room, password, at);
+        return;
       }
-      enter(room, password, new Date().toISOString());
+      const opened = await openRoom(room, password);
+      replaceAll(opened.doc);
+      // Время — серверное: часы браузера отстают, и своя же правка выглядела бы
+      // старее облачной, после чего её затирало бы встречное обновление.
+      enter(room, password, opened.updatedAt);
     } catch (err) {
       setError((err as Error).message);
     } finally {

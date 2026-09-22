@@ -47,13 +47,13 @@ export async function roomExists(name: string): Promise<boolean> {
   return (await fetchRoom(name)) !== null;
 }
 
-export async function createRoom(name: string, password: string, doc: DocState): Promise<void> {
+export async function createRoom(name: string, password: string, doc: DocState): Promise<string> {
   if (await fetchRoom(name)) {
     throw new Error(`Комната «${name}» уже существует. Войдите в неё или выберите другое название.`);
   }
   const res = await call('rooms', {
     method: 'POST',
-    headers: { Prefer: 'return=minimal' },
+    headers: { Prefer: 'return=representation' },
     body: JSON.stringify({
       name,
       verifier: await passwordVerifier(name, password),
@@ -61,16 +61,18 @@ export async function createRoom(name: string, password: string, doc: DocState):
     }),
   });
   if (!res.ok) throw new Error(`Не удалось создать комнату: ${res.status}. ${await res.text()}`);
+  const rows = (await res.json()) as Row[];
+  return rows[0].updated_at;
 }
 
-export async function openRoom(name: string, password: string): Promise<DocState> {
+export async function openRoom(name: string, password: string): Promise<{ doc: DocState; updatedAt: string }> {
   const row = await fetchRoom(name);
   if (!row) throw new Error(`Комната «${name}» не найдена. Проверьте название.`);
   if (row.verifier !== (await passwordVerifier(name, password))) {
     throw new Error('Неверный пароль.');
   }
   try {
-    return await decryptJson<DocState>(name, password, row.payload);
+    return { doc: await decryptJson<DocState>(name, password, row.payload), updatedAt: row.updated_at };
   } catch {
     throw new Error('Содержимое комнаты не читается — возможно, оно записано другим паролем.');
   }
@@ -83,7 +85,8 @@ export async function saveRoom(name: string, password: string, doc: DocState): P
     body: JSON.stringify({
       verifier: await passwordVerifier(name, password),
       payload: await encryptJson(name, password, doc),
-      updated_at: new Date().toISOString(),
+      // updated_at не шлём: его проставляет триггер в базе, и только её часы
+      // общие для всех участников.
     }),
   });
   if (!res.ok) throw new Error(`Сохранение не прошло: ${res.status}. ${await res.text()}`);
@@ -99,6 +102,8 @@ export async function pullIfNewer(
   since: string,
 ): Promise<{ doc: DocState; updatedAt: string } | null> {
   const row = await fetchRoom(name);
-  if (!row || row.updated_at <= since) return null;
+  // Сравниваем МОМЕНТЫ, а не строки: сервер отдаёт «+00:00», браузер — «Z»,
+  // и лексикографически «+00:00» меньше «Z» при одинаковом времени.
+  if (!row || Date.parse(row.updated_at) <= Date.parse(since)) return null;
   return { doc: await decryptJson<DocState>(name, password, row.payload), updatedAt: row.updated_at };
 }

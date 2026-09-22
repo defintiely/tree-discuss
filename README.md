@@ -1,104 +1,78 @@
 # Tree Discuss
 
-Дискуссии деревом реплаев на 2D-канвасе. Ответ создаётся от **выделенного фрагмента текста**
-в родительском узле, а не от узла целиком, поэтому видно, на что именно человек отвечает.
+Threaded discussion on a 2D canvas. A reply attaches to a **specific phrase** in the parent
+message, not to the message as a whole — so you can always see what exactly is being answered.
 
-## Запуск
+**Live:** https://defintiely.github.io/tree-discuss/
+
+## Run locally
 
 ```
 npm install
 npm run dev      # http://localhost:5173
-npm run build    # статика в dist/ — кладётся на любой хостинг
+npm run build    # static files in dist/
 ```
 
-## Как пользоваться
-
-1. Выдели мышью любой фрагмент текста в узле — слово, предложение, несколько абзацев.
-2. Нажми всплывшую кнопку «↳ Ответить» — появится дочерний узел, от цитаты к нему пойдёт стрелка.
-3. Процитированный фрагмент подсвечивается **тем же цветом, что и шапка узла-ответа**, —
-   сразу видно, какая цитата какому ответу принадлежит. Цвет даётся случайный пастельный;
-   квадратик в шапке меняет его на любой другой. Две наложенные цитаты показывают обе
-   полосы снизу, чтобы вложенный ответ не терял свой цвет.
-4. «↳ Ответить» в подвале узла — ответ на **весь текст**, без выделения. Такой ответ ничего
-   не цитирует и наследует цвет источника.
-5. «+ Дописать» — продолжить текст этого же узла новым абзацем. Своя мысль, высказанная
-   в два приёма, остаётся одним сообщением, а не превращается в ответ самому себе.
-6. Двойной клик по телу узла — правка текста, Esc — сохранить.
-7. `☺+` — реакция; клик по уже стоящей реакции добавляет ещё одну.
-8. Поле «Я:» в панели — ваш ник. Узлы, созданные после его указания, помечаются им.
-   Ник лежит в этом браузере и в документ не попадает: смена ника не переписывает
-   авторство уже созданных узлов, а в другом браузере ник будет свой.
-9. Выпадающий список в шапке — тип узла: Начало / Ответ / Вывод. Корень, ответ и вывод —
-   один тип данных с одинаковыми свойствами, включая цвет: на любой можно отвечать,
-   вешать реакции и перекрашивать.
-10. `×` — удалить узел вместе со всеми ответами на него (с подтверждением). Корень не удаляется.
-11. **«Разложить»** в панели — приводит дерево в порядок: колонка на каждый уровень ответов
-    (корень в первой), внутри колонки ответы идут в том же порядке, в каком их цитаты стоят
-    в тексте родителя, и родитель встаёт в середину своих ответов. Ответ на всё
-    сообщение (без цитаты) встаёт после процитированных.
-12. **Ширина** — ползунок в панели задаёт ширину всех узлов сразу (220–900 px). Настройка
-    вида, а не документа: живёт в браузере и в CSV не попадает. Колонки при раскладке
-    раздвигаются под выбранную ширину.
-
-Всё сохраняется само в IndexedDB браузера — закрыл вкладку, вернулся, дерево на месте.
-
-## Готовая переписка из LLM
-
-Кнопка «Промпт для LLM» открывает готовый текст: копируешь, вставляешь в любую LLM, а вместо
-последней строки — свою переписку. LLM возвращает `nodes.csv` и `reactions.csv`, которые
-загружаются кнопкой «Импорт CSV».
-
-Цитата в этом формате передаётся **текстом** (колонка `quote`), а не номерами символов:
-позицию находит приложение поиском подстроки. Так сделано по результату проверки — LLM,
-считая смещения вручную, ошиблась во всех четырёх якорях, причём её собственная
-самопроверка при этом «сошлась».
-
-Промпт правился по живым прогонам, каждый раз против конкретного дефекта: цитата
-обязательна почти всегда (пустая разрешена только в закрытом списке случаев), два
-сообщения одного автора подряд склеиваются в один узел вместо ответа самому себе,
-у узла-вывода родитель обязателен, а выдуманная цитата запрещена прямо — она молча
-теряется при импорте, тогда как пустая честно означает «ответ на всё сообщение».
-
-## Формат обмена
-
-Кнопки «Экспорт CSV» / «Импорт CSV» выгружают и загружают два файла. Дерево плоское:
-связь ребёнка с родителем живёт в самом ребёнке, отдельной таблицы рёбер нет.
-
-**nodes.csv**
+Rooms need a Supabase project. Copy its URL and anon key into `.env.local`:
 
 ```
-id,parent_id,kind,title,text,x,y,anchor_start,anchor_end,color,author,quote
+VITE_SUPABASE_URL=https://xxxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJ...
 ```
 
-| Колонка | Смысл |
-|:---|:---|
-| `id` | id узла |
-| `parent_id` | родитель; пусто только у корня |
-| `kind` | `root` / `reply` / `conclusion` |
-| `title` | заголовок: Начало / Ответ / Вывод |
-| `text` | тело узла |
-| `x`, `y` | позиция на канвасе |
-| `anchor_start`, `anchor_end` | диапазон символов в тексте **родителя**; пусто у корня и у ответа на весь текст |
-| `color` | цвет шапки узла и его цитаты в родителе, `#rrggbb` |
-| `author` | ник создателя узла; пусто, если автор не был указан |
-| `quote` | процитированный фрагмент текстом. При импорте **главнее** чисел: если строка найдена в тексте родителя, якоря вычисляются по ней. Не нашлась — связь остаётся, подсветки нет |
+Apply `supabase/schema.sql` in the Supabase SQL editor. Without these the app still runs —
+it just works locally in one browser, with no rooms.
 
-**reactions.csv**
+## Using it
 
-```
-node_id,emoji,count
-```
+Select any text in a node and press **↳ Ответить** — a child node appears, an arrow runs from
+the quote to it, and the quoted fragment stays highlighted in the parent's colour. Two replies
+to different fragments get different colours, so it is obvious which quote belongs to which answer.
 
-Файлы пишутся с BOM, поэтому Excel не коверкает кириллицу и эмодзи. При импорте проверяются
-дубли id, висячий `parent_id`, циклы и число корней; при проблеме приложение называет
-конкретный узел, а не «invalid csv». Файл, выгруженный до появления цвета и автора,
-читается — цвет подставляется по умолчанию, автор остаётся пустым.
+- **↳ Ответить** in the footer — reply to the whole message, no selection
+- **+ Дописать** — continue this node's own text instead of replying to yourself
+- **☺+** — reactions; click an existing one to add another
+- **Разложить** — lay the tree out in columns: one per reply level, ordered by where each
+  quote sits in the parent's text
+- **Ширина** — node width for the whole canvas; in a room everyone sees the same layout
 
-## Чего пока нет
+## Rooms
 
-Сознательно вне MVP — см. `PLAN.md` §6:
+Create a room with a name and a password, share both with your team, and you are editing the
+same tree. Changes save to the cloud every 10 seconds and arrive to everyone else in the same cycle.
 
-- при правке уже отвеченного текста подсветка цитаты съедет (ребро не потеряется);
-- закрытие и сворачивание тредов, undo/redo, поиск, фокус-режим, авто-раскладка;
-- аккаунтов и паролей нет: ник — это подпись, а не вход, и подменить его может любой;
-- совместное редактирование — приложение однопользовательское.
+The password never leaves the browser. The database stores a one-way derivative of it and the
+tree encrypted with a key derived from it, so whoever reads the table gets neither the password
+nor the discussion — verified by attacking a live database. Room names are visible; the content is not.
+
+**A forgotten password cannot be recovered** — the room stays unreadable. That is the price of
+not storing it anywhere.
+
+## Import from a chat log
+
+**Промпт для LLM** opens a ready prompt: paste it into any LLM together with your conversation,
+and it returns `nodes.csv` + `reactions.csv` for **Импорт CSV**.
+
+Quotes travel as **text** (the `quote` column), not character offsets — the app locates them by
+substring search. This came out of testing: asked to count offsets by hand, an LLM got all four
+anchors wrong while its own self-check reported success.
+
+## Exchange format
+
+**nodes.csv** — `id,parent_id,kind,title,text,x,y,anchor_start,anchor_end,color,author,quote`
+
+The tree is flat: a child carries the link to its parent, there is no separate edge table.
+`quote` wins over the numeric offsets on import — if the string is found in the parent's text,
+anchors are computed from it.
+
+**reactions.csv** — `node_id,emoji,count`
+
+Files carry a BOM so Excel keeps Cyrillic and emoji intact. Import validates duplicate ids,
+dangling `parent_id`, cycles and root count, naming the offending node rather than saying
+"invalid csv".
+
+## Not there yet
+
+- editing an already-answered text shifts its highlight (the link survives)
+- no undo, search, or thread collapsing
+- the nickname is a signature, not a login — anyone can type any name

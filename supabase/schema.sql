@@ -33,3 +33,17 @@ create policy rooms_update on public.rooms
 
 -- Политики DELETE нет намеренно: комнату нельзя стереть из браузера, даже зная
 -- пароль. Ненужные комнаты удаляет владелец проекта через SQL Editor.
+
+-- updated_at is set by the DATABASE, not the browser: participants' clocks differ
+-- by seconds, and an edit stamped by a slow clock would look older than the cloud
+-- copy and get overwritten by it. `default now()` only fires on insert, hence the trigger.
+create or replace function public.touch_updated_at()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at := now();
+  return new;
+end $$;
+
+drop trigger if exists rooms_touch on public.rooms;
+create trigger rooms_touch before update on public.rooms
+  for each row execute function public.touch_updated_at();
