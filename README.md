@@ -3,8 +3,6 @@
 Threaded discussion on a 2D canvas. A reply attaches to a **specific phrase** in the parent
 message, not to the message as a whole — so you can always see what exactly is being answered.
 
-**Live:** https://defintiely.github.io/tree-discuss/
-
 ## Run locally
 
 ```
