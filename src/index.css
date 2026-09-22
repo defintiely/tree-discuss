@@ -1,0 +1,206 @@
+:root {
+  --bg: #f7f8fa;
+  --card: #ffffff;
+  --ink: #16202c;
+  --muted: #64748b;
+  --line: #d9e0e8;
+  --root: #2563eb;
+  --reply: #64748b;
+  --concl: #b8860b;
+  --quote: #fde68a;
+  font-family: -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--ink); }
+
+.app { display: flex; flex-direction: column; height: 100%; }
+
+.bar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 14px; background: var(--card);
+  border-bottom: 1px solid var(--line); z-index: 5;
+}
+.bar-grow { flex: 1; }
+.bar-hint { color: var(--muted); font-size: 13px; }
+.bar button {
+  padding: 6px 12px; border: 1px solid var(--line); border-radius: 7px;
+  background: #fff; cursor: pointer; font-size: 13px;
+}
+.bar button:hover { background: #f1f5f9; }
+
+.note {
+  padding: 8px 14px; background: #fff7ed; border-bottom: 1px solid #fed7aa;
+  font-size: 13px; cursor: pointer;
+}
+.note-x { color: var(--muted); margin-left: 8px; text-decoration: underline; }
+
+/* ── узел ─────────────────────────────────────────────── */
+.dn {
+  /* Ширина приходит инлайном из настройки канваса. */
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 10px; box-shadow: 0 1px 3px rgba(16, 32, 44, 0.08);
+  border-top: 3px solid var(--reply);
+  /* overflow не скрываем: он срезал бы палитру реакций. Скругление держат
+     сами шапка и подвал, каждый своими углами. */
+}
+.dn-root { border-top-color: var(--root); }
+.dn-conclusion { border-top-color: var(--concl); }
+.dn-sel { box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35); }
+
+.dn-head {
+  border-radius: 7px 7px 0 0;
+  display: flex; align-items: center; gap: 7px;
+  padding: 7px 10px; border-bottom: 1px solid rgba(0,0,0,0.08); font-size: 12px;
+}
+.dn-icon { opacity: 0.75; }
+.dn-title { font-weight: 600; letter-spacing: 0.01em; flex: 1; }
+.dn-kind { font-size: 11px; border: 1px solid var(--line); border-radius: 5px; background: #fff; padding: 2px 4px; }
+.dn-x {
+  border: none; background: none; cursor: pointer; color: var(--muted);
+  font-size: 17px; line-height: 1; padding: 0 3px;
+}
+.dn-x:hover { opacity: 0.6; }
+
+/* React Flow ставит на узлы user-select: none, чтобы протяжка мышью панорамировала
+   канвас. Здесь протяжка — это выделение цитаты, поэтому запрет снимается точечно. */
+.dn-body, .dn-edit {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  user-select: text;
+}
+
+/* Узел растёт под текст: внутренний скролл прятал бы строки, а на скрытой строке
+   протяжка мыши обрывается и длинную цитату выделить нельзя. */
+.dn-body {
+  position: relative; padding: 10px; font-size: 13.5px; line-height: 1.55;
+  white-space: pre-wrap; word-break: break-word; min-height: 46px;
+  overflow: visible; cursor: text;
+}
+.dn-empty { color: #b3bdc9; font-style: italic; }
+.dn-edit {
+  width: 100%; min-height: 110px; border: none; padding: 10px; resize: vertical;
+  font: inherit; font-size: 13.5px; line-height: 1.55; outline: 2px solid var(--root);
+  outline-offset: -2px;
+}
+
+
+.reply-pop {
+  position: absolute; z-index: 10; padding: 4px 10px; font-size: 12px;
+  background: var(--ink); color: #fff; border: none; border-radius: 6px;
+  cursor: pointer; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+
+.dn-foot {
+  border-radius: 0 0 9px 9px;
+  display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+  padding: 7px 10px; border-top: 1px solid #eef2f6; background: #fcfdfe;
+}
+.dn-r {
+  border: 1px solid var(--line); background: #fff; border-radius: 12px;
+  padding: 2px 8px; font-size: 12px; cursor: pointer;
+}
+.dn-r:hover { background: #f1f5f9; }
+.dn-add { color: var(--muted); }
+.dn-pick { position: relative; }
+.dn-pal {
+  /* Портал в body: палитра не принадлежит стопке узлов канваса и поэтому
+     не уходит ни под соседний узел, ни под край своего. */
+  position: fixed; z-index: 1000; display: flex;
+  gap: 2px; padding: 5px; background: #fff; border: 1px solid var(--line);
+  border-radius: 8px; box-shadow: 0 6px 20px rgba(16,32,44,0.22);
+}
+.dn-pal button {
+  border: none; background: none; cursor: pointer; font-size: 16px;
+  padding: 2px 4px; border-radius: 5px;
+}
+.dn-pal button:hover { background: #f1f5f9; }
+
+.dn-handle { opacity: 0; pointer-events: none; }
+
+/* Цвет узла задаётся инлайном из данных, здесь только форма элементов. */
+.dn-color {
+  width: 18px; height: 18px; padding: 0; border: 1px solid rgba(0,0,0,0.25);
+  border-radius: 4px; cursor: pointer; flex: none;
+  /* Без этого браузер рисует свой светлый фон, и квадратик выглядит пустым. */
+  -webkit-appearance: none; appearance: none; background: none;
+}
+.dn-color::-webkit-color-swatch-wrapper { padding: 0; }
+.dn-color::-webkit-color-swatch { border: none; border-radius: 3px; }
+
+
+.dn-append { margin-left: auto; }
+.dn-reply { }
+
+.quoted {
+  border-radius: 2px; padding: 1px 2px;
+  /* Бледная заливка на белом читается как подчёркивание, поэтому к ней
+     добавляется контур того же оттенка. */
+  outline: 1px solid rgba(0, 0, 0, 0.12); outline-offset: -1px;
+}
+
+/* ── авторство ────────────────────────────────────────── */
+.bar-me { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.bar-me input {
+  width: 130px; padding: 5px 8px; font: inherit; font-size: 13px;
+  border: 1px solid var(--line); border-radius: 7px; color: var(--ink);
+}
+.bar-me input:focus { outline: 2px solid var(--root); outline-offset: -1px; }
+
+/* Подпись берёт цвет шапки, поэтому своих цветов здесь нет — только форма. */
+.dn-author {
+  font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 9px;
+  background: rgba(255, 255, 255, 0.55); border: 1px solid rgba(0, 0, 0, 0.1);
+  max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── модалка с промптом ───────────────────────────────── */
+.ov {
+  position: fixed; inset: 0; z-index: 2000; display: flex;
+  align-items: center; justify-content: center; padding: 28px;
+  background: rgba(16, 32, 44, 0.45);
+}
+.ov-box {
+  display: flex; flex-direction: column; width: min(900px, 100%); max-height: 100%;
+  background: var(--card); border-radius: 12px; overflow: hidden;
+  box-shadow: 0 18px 50px rgba(16, 32, 44, 0.35);
+}
+.ov-head {
+  display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.ov-hint { color: var(--muted); font-size: 12.5px; }
+.ov-grow { flex: 1; }
+.ov-copy {
+  padding: 6px 14px; font-size: 13px; cursor: pointer; color: #fff;
+  background: var(--root); border: 1px solid var(--root); border-radius: 7px;
+}
+.ov-copy:hover { filter: brightness(1.08); }
+.ov-x {
+  border: none; background: none; cursor: pointer; color: var(--muted);
+  font-size: 22px; line-height: 1; padding: 0 4px;
+}
+.ov-x:hover { color: var(--ink); }
+.ov-text {
+  flex: 1; min-height: 340px; padding: 14px 16px; border: none; resize: none;
+  font-family: 'Cascadia Mono', Consolas, monospace; font-size: 12px; line-height: 1.5;
+  color: var(--ink); background: #fbfcfd;
+}
+.ov-text:focus { outline: none; }
+.ov-foot {
+  padding: 10px 16px; border-top: 1px solid var(--line);
+  font-size: 12.5px; color: var(--muted); background: #fcfdfe;
+}
+.ov-foot code {
+  padding: 1px 5px; background: #eef2f6; border-radius: 4px;
+  font-family: 'Cascadia Mono', Consolas, monospace; font-size: 11.5px;
+}
+
+/* ── ширина узлов ─────────────────────────────────────── */
+.bar-w { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--muted); }
+.bar-w input[type='range'] { width: 110px; accent-color: var(--root); cursor: pointer; }
+.bar-w-val {
+  min-width: 34px; text-align: right; font-variant-numeric: tabular-nums;
+  color: var(--ink); font-size: 12.5px;
+}
