@@ -27,7 +27,7 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
   const subtreeIds = useDoc((s) => s.subtreeIds);
   const setColor = useDoc((s) => s.setColor);
   const me = useMe((s) => s.name);
-  const width = useMe((s) => s.width);
+  const width = useDoc((s) => s.width);
 
   const node = useMemo(() => allNodes.find((n) => n.id === nodeId), [allNodes, nodeId]);
   const children = useMemo(() => allNodes.filter((n) => n.parentId === nodeId), [allNodes, nodeId]);

@@ -15,6 +15,7 @@ export function RoomGate({ onLocal }: { onLocal: () => void }) {
   const enter = useRoom((s) => s.enter);
   const replaceAll = useDoc((s) => s.replaceAll);
   const nodes = useDoc((s) => s.nodes);
+  const width = useDoc((s) => s.width);
 
   const configured = cloudConfigured();
 
@@ -28,7 +29,7 @@ export function RoomGate({ onLocal }: { onLocal: () => void }) {
       if (mode === 'create') {
         // Новая комната начинается с одного корневого узла, а не с копии
         // того, что случайно осталось на экране от прошлой работы.
-        const fresh: DocState = { nodes: [nodes[0]], reactions: [] };
+        const fresh: DocState = { nodes: [nodes[0]], reactions: [], width };
         await createRoom(room, password, fresh);
         replaceAll(fresh);
       } else {

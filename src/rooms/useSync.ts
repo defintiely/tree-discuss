@@ -17,6 +17,7 @@ const PERIOD_MS = 10_000;
 export function useSync() {
   const nodes = useDoc((s) => s.nodes);
   const reactions = useDoc((s) => s.reactions);
+  const width = useDoc((s) => s.width);
   const replaceAll = useDoc((s) => s.replaceAll);
 
   const roomName = useRoom((s) => s.name);
@@ -25,8 +26,8 @@ export function useSync() {
   const setUpdatedAt = useRoom((s) => s.setUpdatedAt);
   const markDirty = useRoom((s) => s.markDirty);
 
-  const live = useRef({ nodes, reactions, roomName, password });
-  live.current = { nodes, reactions, roomName, password };
+  const live = useRef({ nodes, reactions, width, roomName, password });
+  live.current = { nodes, reactions, width, roomName, password };
 
   /** Снимок того, что уже лежит в облаке. Пусто — снимка ещё нет. */
   const synced = useRef<string>('');
@@ -37,23 +38,23 @@ export function useSync() {
   useEffect(() => {
     if (!roomName) return;
     // Дерево отличается от облачного снимка — значит его правили.
-    if (synced.current && shot({ nodes, reactions }) !== synced.current) markDirty();
-  }, [nodes, reactions, roomName, markDirty]);
+    if (synced.current && shot({ nodes, reactions, width }) !== synced.current) markDirty();
+  }, [nodes, reactions, width, roomName, markDirty]);
 
   useEffect(() => {
     if (!roomName || !password) return;
     // Вход: то, что сейчас на экране, и есть содержимое облака.
-    synced.current = shot({ nodes: live.current.nodes, reactions: live.current.reactions });
+    synced.current = shot({ nodes: live.current.nodes, reactions: live.current.reactions, width: live.current.width });
 
     const tick = async () => {
-      const { roomName: room, password: pass, nodes: n, reactions: r } = live.current;
+      const { roomName: room, password: pass, nodes: n, reactions: r, width: w } = live.current;
       if (!room || !pass || busy.current) return;
       busy.current = true;
       try {
-        const current = shot({ nodes: n, reactions: r });
+        const current = shot({ nodes: n, reactions: r, width: w });
         if (current !== synced.current) {
           setSync('saving');
-          const at = await saveRoom(room, pass, { nodes: n, reactions: r });
+          const at = await saveRoom(room, pass, { nodes: n, reactions: r, width: w });
           synced.current = current;
           setUpdatedAt(at);
           setSync('saved');

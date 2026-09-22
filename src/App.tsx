@@ -32,8 +32,8 @@ function Canvas() {
   const reactions = useDoc((s) => s.reactions);
   const me = useMe((s) => s.name);
   const setMe = useMe((s) => s.setName);
-  const width = useMe((s) => s.width);
-  const setWidth = useMe((s) => s.setWidth);
+  const width = useDoc((s) => s.width);
+  const setWidth = useDoc((s) => s.setWidth);
   const setPos = useDoc((s) => s.setPos);
   const replaceAll = useDoc((s) => s.replaceAll);
   const applyLayout = useDoc((s) => s.applyLayout);
@@ -55,7 +55,7 @@ function Canvas() {
   }, [replaceAll]);
 
   useEffect(() => {
-    save({ nodes, reactions });
+    save({ nodes, reactions, width });
   }, [nodes, reactions, save]);
 
   const rfNodes: RFNode[] = useMemo(
@@ -160,7 +160,7 @@ function Canvas() {
         <button onClick={() => setShowPrompt(true)} title="Промпт, которым LLM превратит переписку в CSV">
           Промпт для LLM
         </button>
-        <button onClick={() => exportDoc({ nodes, reactions })}>Экспорт CSV</button>
+        <button onClick={() => exportDoc({ nodes, reactions, width })}>Экспорт CSV</button>
         <button onClick={() => filesRef.current?.click()}>Импорт CSV</button>
         <input ref={filesRef} type="file" accept=".csv" multiple hidden onChange={onImport} />
       </div>

@@ -5,9 +5,11 @@
 import { create } from 'zustand';
 import { KIND_TITLE, newId, type DocState, type NodeId, type NodeKind, type TreeNode } from '../types';
 import { DEFAULT_COLOR, randomPastel } from '../colors';
+import { DEFAULT_WIDTH, MAX_WIDTH, MIN_WIDTH } from '../layout';
 
 type DocStore = DocState & {
   replaceAll: (doc: DocState) => void;
+  setWidth: (width: number) => void;
   addReply: (args: {
     parentId: NodeId;
     /** Пусто — ответ на весь текст: цвет наследуется от родителя. */
@@ -28,6 +30,12 @@ type DocStore = DocState & {
   subtreeIds: (id: NodeId) => NodeId[];
 };
 
+function clampWidth(w: unknown): number {
+  const n = Number(w);
+  if (!Number.isFinite(n)) return DEFAULT_WIDTH;
+  return Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.round(n)));
+}
+
 const ROOT: TreeNode = {
   id: 'root',
   parentId: null,
@@ -46,8 +54,14 @@ const ROOT: TreeNode = {
 export const useDoc = create<DocStore>((set, get) => ({
   nodes: [ROOT],
   reactions: [],
+  width: DEFAULT_WIDTH,
 
-  replaceAll: (doc) => set({ nodes: doc.nodes, reactions: doc.reactions }),
+  replaceAll: (doc) =>
+    set({ nodes: doc.nodes, reactions: doc.reactions, width: clampWidth(doc.width) }),
+
+  // Ширина приезжает из облака и из чужих правок, поэтому границы держит стор,
+  // а не разметка ползунка: битое значение иначе растянуло бы узлы на весь экран.
+  setWidth: (width) => set({ width: clampWidth(width) }),
 
   addReply: ({ parentId, anchorStart = null, anchorEnd = null, x, y, author }) => {
     const id = newId();

@@ -23,8 +23,12 @@ body { background: var(--bg); color: var(--ink); }
   border-bottom: 1px solid var(--line); z-index: 5;
 }
 .bar-grow { flex: 1; }
+/* Панель не переносится на две строки: заголовок и подсказка не жмутся,
+   а подсказка исчезает первой, когда места мало. */
+.bar > strong { white-space: nowrap; }
+@media (max-width: 1500px) { .bar-hint { display: none; } }
 .bar-hint { color: var(--muted); font-size: 13px; }
-.bar button {
+.bar button { white-space: nowrap;
   padding: 6px 12px; border: 1px solid var(--line); border-radius: 7px;
   background: #fff; cursor: pointer; font-size: 13px;
 }

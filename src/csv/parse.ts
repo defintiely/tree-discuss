@@ -1,6 +1,7 @@
 import Papa from 'papaparse';
 import { KIND_TITLE, type DocState, type NodeKind, type Reaction, type TreeNode } from '../types';
 import { DEFAULT_COLOR } from '../colors';
+import { DEFAULT_WIDTH } from '../layout';
 
 const KINDS: NodeKind[] = ['root', 'reply', 'conclusion'];
 
@@ -51,7 +52,8 @@ export function parseDoc(nodesCsv: string, reactionsCsv: string): DocState {
   const reactions = reactionsCsv.trim() ? reactionsFromCsv(reactionsCsv) : [];
   resolveQuotes(nodes);
   validate(nodes, reactions);
-  return { nodes, reactions };
+  // Ширина — свойство комнаты, а не файла обмена: импорт её не меняет.
+  return { nodes, reactions, width: DEFAULT_WIDTH };
 }
 
 /**
