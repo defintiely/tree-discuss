@@ -1,76 +1,74 @@
 # Tree Discuss
 
-Threaded discussion on a 2D canvas. A reply attaches to a **specific phrase** in the parent
-message, not to the message as a whole — so you can always see what exactly is being answered.
+Обсуждение деревом на 2D-канвасе. Ответ цепляется за **конкретную фразу** в сообщении,
+а не за сообщение целиком — поэтому всегда видно, на что именно отвечают.
 
-## Run locally
+## Запуск
 
 ```
 npm install
 npm run dev      # http://localhost:5173
-npm run build    # static files in dist/
+npm run build    # статика в dist/
 ```
 
-Rooms need a Supabase project. Copy its URL and anon key into `.env.local`:
+Для комнат нужен проект Supabase. Его адрес и anon-ключ кладутся в `.env.local`:
 
 ```
 VITE_SUPABASE_URL=https://xxxxx.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJ...
 ```
 
-Apply `supabase/schema.sql` in the Supabase SQL editor. Without these the app still runs —
-it just works locally in one browser, with no rooms.
+Схема базы — `supabase/schema.sql`, выполняется в SQL-редакторе Supabase. Без всего этого
+приложение тоже работает: просто локально, в одном браузере и без комнат.
 
-## Using it
+## Как пользоваться
 
-Select any text in a node and press **↳ Ответить** — a child node appears, an arrow runs from
-the quote to it, and the quoted fragment stays highlighted in the parent's colour. Two replies
-to different fragments get different colours, so it is obvious which quote belongs to which answer.
+Выдели текст в узле и нажми **↳ Ответить** — появится дочерний узел, от цитаты к нему пойдёт
+стрелка, а сам фрагмент останется подсвечен цветом ответа. Два ответа на разные фрагменты
+получают разные цвета, поэтому видно, какая цитата какому ответу принадлежит.
 
-- **↳ Ответить** in the footer — reply to the whole message, no selection
-- **+ Дописать** — continue this node's own text instead of replying to yourself
-- **☺+** — reactions; click an existing one to add another
-- **Разложить** — lay the tree out in columns: one per reply level, ordered by where each
-  quote sits in the parent's text
-- **Ширина** — node width for the whole canvas; in a room everyone sees the same layout
+- **↳ Ответить** в подвале — ответ на всё сообщение, без выделения
+- **+ Дописать** — продолжить текст этого же узла вместо ответа самому себе
+- **☺+** — реакции; клик по стоящей добавляет ещё одну
+- **Разложить** — колонка на каждый уровень ответов, порядок внутри колонки по тому,
+  где цитата стоит в тексте родителя
+- **Ширина** — ширина узлов для всего канваса; в комнате её видят все одинаково
 
-## Rooms
+## Комнаты
 
-Create a room with a name and a password, share both with your team, and you are editing the
-same tree. Changes save to the cloud every 10 seconds and arrive to everyone else in the same cycle.
+Создаёшь комнату с названием и паролем, даёшь их коллегам — и вы правите одно дерево.
+Изменения уходят в облако раз в 10 секунд и в том же такте приезжают к остальным.
 
-The password never leaves the browser. The database stores a one-way derivative of it and the
-tree encrypted with a key derived from it, so whoever reads the table gets neither the password
-nor the discussion — verified by attacking a live database. Room names are visible; the content is not.
+Пароль не покидает браузер. В базе лежит односторонняя производная от него и дерево,
+зашифрованное выведенным из него ключом: прочитавший таблицу не получает ни пароля, ни текста
+обсуждения — проверено атакой на живую базу. Названия комнат видны, содержимое — нет.
 
-**A forgotten password cannot be recovered** — the room stays unreadable. That is the price of
-not storing it anywhere.
+**Забытый пароль восстановить нельзя** — комната останется нечитаемой. Это плата за то,
+что он нигде не хранится.
 
-## Import from a chat log
+## Переписка из чата
 
-**Промпт для LLM** opens a ready prompt: paste it into any LLM together with your conversation,
-and it returns `nodes.csv` + `reactions.csv` for **Импорт CSV**.
+**Промпт для LLM** открывает готовый текст: вставляешь его в любую LLM вместе со своей
+перепиской, получаешь `nodes.csv` и `reactions.csv` для кнопки **Импорт CSV**.
 
-Quotes travel as **text** (the `quote` column), not character offsets — the app locates them by
-substring search. This came out of testing: asked to count offsets by hand, an LLM got all four
-anchors wrong while its own self-check reported success.
+Цитата передаётся **текстом** (колонка `quote`), а не номерами символов: позицию находит
+приложение поиском подстроки. Так сделано по результату проверки — считая смещения вручную,
+LLM ошиблась во всех четырёх якорях, причём её собственная самопроверка «сошлась».
 
-## Exchange format
+## Формат обмена
 
 **nodes.csv** — `id,parent_id,kind,title,text,x,y,anchor_start,anchor_end,color,author,quote`
 
-The tree is flat: a child carries the link to its parent, there is no separate edge table.
-`quote` wins over the numeric offsets on import — if the string is found in the parent's text,
-anchors are computed from it.
+Дерево плоское: связь с родителем живёт в самом ребёнке, отдельной таблицы рёбер нет.
+При импорте `quote` главнее чисел — если строка нашлась в тексте родителя, якоря считаются по ней.
 
 **reactions.csv** — `node_id,emoji,count`
 
-Files carry a BOM so Excel keeps Cyrillic and emoji intact. Import validates duplicate ids,
-dangling `parent_id`, cycles and root count, naming the offending node rather than saying
-"invalid csv".
+Файлы пишутся с BOM, поэтому Excel не коверкает кириллицу и эмодзи. Импорт проверяет дубли id,
+висячий `parent_id`, циклы и число корней и называет виновный узел, а не «invalid csv».
 
-## Not there yet
+## Чего пока нет
 
-- editing an already-answered text shifts its highlight (the link survives)
-- no undo, search, or thread collapsing
-- the nickname is a signature, not a login — anyone can type any name
+- правка уже отвеченного текста сдвигает подсветку цитаты (связь при этом не теряется)
+- нет отмены действий, поиска и сворачивания веток
+- ник — это подпись, а не вход: назваться можно кем угодно
