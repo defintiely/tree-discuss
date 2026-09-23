@@ -1,23 +1,26 @@
 import { useState } from 'react';
 import { cloudConfigured, createRoom, openRoom } from './api';
 import { useRoom } from './useRoom';
-import { useDoc } from '../store/useDoc';
-import type { DocState } from '../types';
+import { emptyDoc, useDoc } from '../store/useDoc';
+import { roomFromUrl, setRoomInUrl } from './url';
 
 /** Стартовый экран: создать комнату или войти в существующую. */
 export function RoomGate({ onLocal }: { onLocal: () => void }) {
+  // Комната из ссылки: человеку остаётся ввести только пароль.
+  const fromLink = roomFromUrl();
+
   const [mode, setMode] = useState<'enter' | 'create'>('enter');
-  const [name, setName] = useState('');
+  const [name, setName] = useState(fromLink);
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const enter = useRoom((s) => s.enter);
   const replaceAll = useDoc((s) => s.replaceAll);
-  const nodes = useDoc((s) => s.nodes);
   const width = useDoc((s) => s.width);
 
   const configured = cloudConfigured();
+  const invited = Boolean(fromLink) && mode === 'enter';
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,16 +30,18 @@ export function RoomGate({ onLocal }: { onLocal: () => void }) {
     setError(null);
     try {
       if (mode === 'create') {
-        // Новая комната начинается с одного корневого узла, а не с копии
-        // того, что случайно осталось на экране от прошлой работы.
-        const fresh: DocState = { nodes: [nodes[0]], reactions: [], width };
+        // Дерево берётся ЧИСТОЕ, а не из стора: там могло остаться содержимое
+        // комнаты, из которой только что вышли, и оно утекло бы в новую.
+        const fresh = emptyDoc(width);
         const at = await createRoom(room, password, fresh);
         replaceAll(fresh);
+        setRoomInUrl(room);
         enter(room, password, at);
         return;
       }
       const opened = await openRoom(room, password);
       replaceAll(opened.doc);
+      setRoomInUrl(room);
       // Время — серверное: часы браузера отстают, и своя же правка выглядела бы
       // старее облачной, после чего её затирало бы встречное обновление.
       enter(room, password, opened.updatedAt);
@@ -55,37 +60,52 @@ export function RoomGate({ onLocal }: { onLocal: () => void }) {
 
         {configured ? (
           <>
-            <div className="gate-tabs">
-              <button
-                type="button"
-                className={mode === 'enter' ? 'on' : ''}
-                onClick={() => { setMode('enter'); setError(null); }}
-              >
-                Войти в комнату
-              </button>
-              <button
-                type="button"
-                className={mode === 'create' ? 'on' : ''}
-                onClick={() => { setMode('create'); setError(null); }}
-              >
-                Создать комнату
-              </button>
-            </div>
+            {invited ? (
+              <p className="gate-invite">
+                Комната <strong>{fromLink}</strong> — введите пароль, чтобы войти.
+              </p>
+            ) : (
+              <div className="gate-tabs">
+                <button
+                  type="button"
+                  className={mode === 'enter' ? 'on' : ''}
+                  onClick={() => {
+                    setMode('enter');
+                    setError(null);
+                  }}
+                >
+                  Войти в комнату
+                </button>
+                <button
+                  type="button"
+                  className={mode === 'create' ? 'on' : ''}
+                  onClick={() => {
+                    setMode('create');
+                    setError(null);
+                  }}
+                >
+                  Создать комнату
+                </button>
+              </div>
+            )}
 
-            <label className="gate-field">
-              Название комнаты
-              <input
-                autoFocus
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="например, релиз-3"
-              />
-            </label>
+            {!invited && (
+              <label className="gate-field">
+                Название комнаты
+                <input
+                  autoFocus={!fromLink}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="например, релиз-3"
+                />
+              </label>
+            )}
 
             <label className="gate-field">
               Пароль
               <input
                 type="password"
+                autoFocus={Boolean(fromLink)}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={mode === 'create' ? 'придумайте пароль' : 'пароль комнаты'}
@@ -97,6 +117,19 @@ export function RoomGate({ onLocal }: { onLocal: () => void }) {
             <button className="gate-go" type="submit" disabled={busy || !name.trim() || !password}>
               {busy ? 'Минуту…' : mode === 'create' ? 'Создать и войти' : 'Войти'}
             </button>
+
+            {invited && (
+              <button
+                className="gate-other"
+                type="button"
+                onClick={() => {
+                  setName('');
+                  setError(null);
+                }}
+              >
+                Войти в другую комнату
+              </button>
+            )}
 
             <p className="gate-note">
               Пароль не уходит в облако, а содержимое комнаты шифруется им же. Забытый пароль

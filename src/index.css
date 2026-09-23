@@ -263,3 +263,19 @@ body { background: var(--bg); color: var(--ink); }
   font-size: 11.5px; text-decoration: underline; padding: 0;
 }
 .bar-room-out:hover { color: var(--ink); }
+
+.bar-room-link {
+  border: none; background: none; cursor: pointer; color: var(--root);
+  font-size: 11.5px; text-decoration: underline; padding: 0;
+}
+.bar-room-link:hover { filter: brightness(0.85); }
+
+.gate-invite {
+  margin: 0; padding: 9px 11px; font-size: 13px; line-height: 1.45;
+  background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: var(--ink);
+}
+.gate-other {
+  padding: 6px; font-size: 12px; color: var(--muted);
+  background: none; border: none; cursor: pointer; text-decoration: underline;
+}
+.gate-other:hover { color: var(--ink); }

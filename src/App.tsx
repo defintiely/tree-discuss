@@ -11,7 +11,7 @@ import {
   type NodeChange,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { useDoc } from './store/useDoc';
+import { emptyDoc, useDoc } from './store/useDoc';
 import { useMe } from './store/useMe';
 import { DiscussNode } from './nodes/DiscussNode';
 import { QuoteEdge } from './edges/QuoteEdge';
@@ -22,6 +22,7 @@ import { PromptDialog } from './PromptDialog';
 import { RoomGate } from './rooms/RoomGate';
 import { useRoom } from './rooms/useRoom';
 import { useSync } from './rooms/useSync';
+import { clearRoomInUrl, roomLink } from './rooms/url';
 import { layoutTree, MAX_WIDTH, MIN_WIDTH } from './layout';
 
 const nodeTypes = { discuss: DiscussNode };
@@ -44,19 +45,39 @@ function Canvas() {
   const roomDirty = useRoom((s) => s.dirty);
   const roomError = useRoom((s) => s.error);
   const leaveRoom = useRoom((s) => s.leave);
+  const [copied, setCopied] = useState(false);
+
+  function exitRoom() {
+    // Дерево чистится ВМЕСТЕ с комнатой: иначе следующая созданная комната
+    // унаследует текст предыдущей, а он там чужой.
+    leaveRoom();
+    clearRoomInUrl();
+    replaceAll(emptyDoc(width));
+  }
+
+  async function copyLink() {
+    if (!roomName) return;
+    try { await navigator.clipboard.writeText(roomLink(roomName)); } catch { /* буфер недоступен */ }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+  }
   useSync();
   const filesRef = useRef<HTMLInputElement>(null);
   const save = useMemo(() => makeDebouncedSave(500), []);
 
   useEffect(() => {
+    // В комнате источник правды — облако. Локальная копия подсунула бы старое
+    // дерево поверх загруженного и выглядела бы как чужое содержимое.
+    if (roomName) return;
     void loadDoc().then((doc) => {
       if (doc) replaceAll(doc);
     });
-  }, [replaceAll]);
+  }, [replaceAll, roomName]);
 
   useEffect(() => {
+    if (roomName) return;
     save({ nodes, reactions, width });
-  }, [nodes, reactions, save]);
+  }, [nodes, reactions, width, save, roomName]);
 
   const rfNodes: RFNode[] = useMemo(
     () => nodes.map((n) => ({ id: n.id, type: 'discuss', position: { x: n.x, y: n.y }, data: { nodeId: n.id } })),
@@ -129,7 +150,10 @@ function Canvas() {
             <span className="bar-room-state">
               {roomSync === "saving" ? "сохраняю…" : roomSync === "error" ? "ошибка" : roomDirty ? "есть правки" : "сохранено"}
             </span>
-            <button className="bar-room-out" onClick={leaveRoom} title="Выйти из комнаты">выйти</button>
+            <button className="bar-room-link" onClick={copyLink} title="Скопировать ссылку на комнату">
+              {copied ? "✓ скопирована" : "ссылка"}
+            </button>
+            <button className="bar-room-out" onClick={exitRoom} title="Выйти из комнаты">выйти</button>
           </span>
         )}
         <label className="bar-me">

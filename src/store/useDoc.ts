@@ -51,6 +51,11 @@ const ROOT: TreeNode = {
   quote: '',
 };
 
+/** Чистый документ новой комнаты: старое дерево в него не просачивается. */
+export function emptyDoc(width: number = DEFAULT_WIDTH): DocState {
+  return { nodes: [{ ...ROOT }], reactions: [], width: clampWidth(width) };
+}
+
 export const useDoc = create<DocStore>((set, get) => ({
   nodes: [ROOT],
   reactions: [],
