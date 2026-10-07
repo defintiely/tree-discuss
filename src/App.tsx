@@ -27,7 +27,7 @@ import { clearRoomInUrl, roomLink } from './rooms/url';
 import { layoutTree, MAX_WIDTH, MIN_WIDTH } from './layout';
 import { AuthorPicker } from './ui/AuthorPicker';
 import type { TreeNode } from './types';
-import { estimateHeight, fullHeight, LOD_ZOOM } from './nodes/lod';
+import { estimateHeight, fullHeight, LOD_ZOOM, MAX_ZOOM, MIN_ZOOM } from './nodes/lod';
 
 const nodeTypes = { discuss: DiscussNode };
 const edgeTypes = { quote: QuoteEdge };
@@ -203,8 +203,8 @@ function Canvas() {
         <button className="bar-me" onClick={() => openPicker()} title="Сменить автора">
           {me || 'Представиться'}
         </button>
-      </header>
 
+      {/* Меню внутри шапки: встаёт прямо под ней, какой бы высоты шапка ни была. */}
       {menu && (
         <>
           <div className="menu-veil" onPointerDown={() => setMenu(false)} />
@@ -244,6 +244,7 @@ function Canvas() {
           </nav>
         </>
       )}
+      </header>
       <input ref={filesRef} type="file" accept=".csv" multiple hidden onChange={onImport} />
       {showPrompt && <PromptDialog onClose={() => setShowPrompt(false)} />}
       <AuthorPicker />
@@ -259,8 +260,8 @@ function Canvas() {
         edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
         fitView
-        minZoom={0.15}
-        maxZoom={2}
+        minZoom={MIN_ZOOM}
+        maxZoom={MAX_ZOOM}
         // Двойной тап по тексту узла — правка, а не зум канваса.
         zoomOnDoubleClick={false}
         // Вблизи узлы и стрелки за кадром не живут в DOM: крупный план одного узла

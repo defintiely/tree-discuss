@@ -21,16 +21,20 @@ body { background: var(--bg); color: var(--ink); }
 .app > .react-flow { flex: 1 1 0; min-height: 0; height: auto; }
 
 /* ── шапка: только меню, заголовок и автор ────────────── */
+/* Высота шапки — по кнопке ника плюс тонкие поля: в горизонтальной ориентации
+   телефона экран низкий, и каждая строка шапки отнимается у карты. */
 .bar {
-  position: relative; display: flex; align-items: center; gap: 8px; flex: none;
-  height: calc(48px + env(safe-area-inset-top)); padding: 0 8px; padding-top: env(safe-area-inset-top);
+  position: relative; display: flex; align-items: center; gap: 6px; flex: none;
+  padding: calc(3px + env(safe-area-inset-top)) 6px 3px;
   background: var(--card); border-bottom: 1px solid var(--line); z-index: 30;
 }
 .bar-grow { flex: 1; }
 .bar-menu {
-  width: 40px; height: 40px; flex: none; font-size: 20px; line-height: 1;
+  width: 32px; height: 32px; flex: none; font-size: 18px; line-height: 1;
   border: none; border-radius: 8px; background: none; cursor: pointer; color: var(--ink);
 }
+/* Над подложкой меню: ☰ закрывает меню тем же тапом, что открыл. */
+.bar-menu, .bar-me { position: relative; z-index: 27; }
 .bar-menu:hover, .bar-menu.on { background: #f1f5f9; }
 /* Длинное имя комнаты режется многоточием, а не выталкивает ник за край. */
 .bar-title {
@@ -40,7 +44,7 @@ body { background: var(--bg); color: var(--ink); }
 .bar-dot-saving { background: var(--root); }
 .bar-dot-error { background: #dc2626; }
 .bar-me {
-  max-width: 45vw; flex: none; padding: 7px 12px; font-size: 13.5px; font-weight: 600;
+  max-width: 45vw; flex: none; padding: 5px 12px; font-size: 13.5px; font-weight: 600;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
   color: var(--ink); background: #f1f5f9; border: 1px solid var(--line); border-radius: 18px;
 }
@@ -49,8 +53,8 @@ body { background: var(--bg); color: var(--ink); }
 /* ── меню ─────────────────────────────────────────────── */
 .menu-veil { position: fixed; inset: 0; z-index: 25; }
 .menu {
-  position: absolute; top: calc(48px + env(safe-area-inset-top)); left: 8px; z-index: 26;
-  width: min(320px, calc(100vw - 16px)); max-height: calc(100% - 64px); overflow-y: auto;
+  position: absolute; top: calc(100% + 4px); left: 6px; z-index: 26;
+  width: min(320px, calc(100vw - 12px)); max-height: calc(100vh - 80px); max-height: calc(100dvh - 80px); overflow-y: auto;
   display: flex; flex-direction: column; gap: 2px; padding: 6px;
   background: var(--card); border: 1px solid var(--line); border-radius: 12px;
   box-shadow: 0 12px 36px rgba(16, 32, 44, 0.18);
@@ -283,8 +287,10 @@ body { background: var(--bg); color: var(--ink); }
 
 /* ── палец ────────────────────────────────────────────── */
 @media (pointer: coarse) {
-  /* Двойной тап — правка текста, а не зум страницы. */
-  .dn-body { touch-action: manipulation; }
+  /* Жесты пальцем по тексту целиком отдаются карте: протяжка двигает её, щипок
+     масштабирует, двойной тап — правка текста, а не зум страницы. Долгое нажатие
+     (выделение цитаты) от touch-action не зависит. */
+  .dn-body { touch-action: none; }
   .dn-r { padding: 6px 11px; font-size: 13px; }
   .dn-foot { gap: 7px; }
   .dn-color { width: 24px; height: 24px; }

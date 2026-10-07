@@ -1,4 +1,5 @@
 import type { ReactFlowInstance } from '@xyflow/react';
+import { MAX_ZOOM } from './lod';
 
 /** Палец: экран узкий, текст читаем только при ширине узла во весь экран. */
 const TOUCH = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
@@ -52,7 +53,7 @@ export function followCaret(
   const visBottom = Math.min(rect.bottom, vv ? vv.offsetTop + vv.height : window.innerHeight);
   if (visBottom - visTop < 40) return;
 
-  const fit = (rect.width - 24) / width;
+  const fit = Math.min(MAX_ZOOM, (rect.width - 24) / width);
   const zoom = TOUCH ? fit : Math.min(Math.max(rf.getZoom(), 0.8), fit);
 
   const line = caretLine(ta);

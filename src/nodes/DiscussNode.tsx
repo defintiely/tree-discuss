@@ -1,4 +1,4 @@
-import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Handle, Position, useReactFlow, useStore, type NodeProps } from '@xyflow/react';
 import { useShallow } from 'zustand/react/shallow';
@@ -12,6 +12,7 @@ import { KIND_TITLE, type NodeKind, type TreeNode } from '../types';
 import { inkFor, lineFor } from '../colors';
 import { VotePanel } from './VotePanel';
 import { autosize, followCaret } from './followCaret';
+import { panGesture } from './panGesture';
 import { Sheet } from '../ui/Sheet';
 
 const PALETTE = ['👍', '👎', '🔥', '🤔', '❤️', '😂', '🎯', '⚠️'];
@@ -52,6 +53,7 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
   /** Сколько узлов уйдёт при удалении; null — подтверждение не открыто. */
   const [deleting, setDeleting] = useState<number | null>(null);
   const rf = useReactFlow();
+  const pan = useMemo(() => panGesture(rf), [rf]);
   const [sel, setSel] = useState<{ start: number; end: number; top: number; left: number } | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -152,7 +154,8 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
       >
         <Handle type="target" position={Position.Left} className="dn-handle" />
         <div className="dn-sketch-head" style={{ background: node.color }} />
-        <div className="dn-sketch-lines" />
+        {/* Пальцем — как по тексту полного узла: протяжка по полосам двигает карту, а не узел. */}
+        <div className={`dn-sketch-lines ${TOUCH ? 'nodrag' : ''}`} {...(TOUCH ? pan : {})} />
         <Handle type="source" position={Position.Right} className="dn-handle" />
       </div>
     );
@@ -314,10 +317,12 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
       ) : (
         <div
           ref={bodyRef}
+          // Мышью протяжка по тексту — выделение цитаты, и карта её не забирает.
+          // Пальцем цитату выделяют долгим нажатием, а протяжка по тексту двигает
+          // карту (panGesture); сам узел двигают за шапку.
           className="dn-body nodrag nopan"
-          // Иначе протяжку внутри текста React Flow забирает себе как жест канваса
-          // и выделение не успевает возникнуть.
           onMouseDown={(e) => e.stopPropagation()}
+          {...(TOUCH ? pan : {})}
           onMouseUp={onMouseUp}
           onDoubleClick={() => {
             if (!locked) startEdit(node!.text);
