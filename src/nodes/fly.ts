@@ -20,14 +20,21 @@ export function readableZoom(paneWidth: number, nodeWidth: number, current: numb
 
 /** Узел, к которому только что перелетели: коротко подсвечивается, чтобы взгляд нашёл его сразу. */
 export const useFlash = create<{ id: NodeId | null }>(() => ({ id: null }));
-let flashTimer: ReturnType<typeof setTimeout> | undefined;
+let flashTimers: ReturnType<typeof setTimeout>[] = [];
+
+export const FLY_MS = 750;
+/** Длительность вспышки — та же, что у анимации .dn-flash в index.css. */
+const FLASH_MS = 1300;
+const quadInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 
 type Rf = Pick<ReactFlowInstance, 'getZoom' | 'setViewport'>;
 
 /**
- * Перелёт камеры к узлу. Цель встаёт по центру по горизонтали и на 40% высоты
- * экрана по вертикали: к ответу — его начало, к источнику — цитата, на которую
- * ответили (её высоту в узле замеряет сам узел, см. anchors.ts).
+ * Перелёт камеры к узлу, по горизонтали — в центр. По вертикали узел, который
+ * влезает в экран, встаёт по центру целиком; не влезающий упирается шапкой в верх
+ * экрана — читать его начинают сверху. Исключение — перелёт к цитате в длинном
+ * источнике (её высоту в узле замеряет сам узел, см. anchors.ts): если от шапки
+ * до неё не достать, по центру встаёт сама цитата.
  */
 export function flyTo(rf: Rf, id: NodeId, quoteOf?: NodeId): void {
   const { nodes, width } = useDoc.getState();
@@ -38,15 +45,24 @@ export function flyTo(rf: Rf, id: NodeId, quoteOf?: NodeId): void {
   const zoom = readableZoom(pane.width, width, rf.getZoom());
   const h = fullHeight.get(id) ?? estimateHeight(node.text, width);
   const quoteY = quoteOf ? useAnchors.getState().y[quoteOf] : undefined;
-  // Начало ответа — шапка и первые строки; длинный узел не центрируется целиком,
-  // иначе его начало уехало бы за верх экрана.
-  const focusY = node.y + (quoteY ?? Math.min(h / 2, 120));
+
+  let y = pane.height / 2 - (node.y + h / 2) * zoom;
+  if (h * zoom > pane.height) {
+    y = -node.y * zoom;
+    if (quoteY !== undefined && quoteY * zoom > pane.height * 0.85) {
+      y = pane.height * 0.4 - (node.y + quoteY) * zoom;
+    }
+  }
 
   void rf.setViewport(
-    { x: pane.width / 2 - (node.x + width / 2) * zoom, y: pane.height * 0.4 - focusY * zoom, zoom },
-    { duration: 450 },
+    { x: pane.width / 2 - (node.x + width / 2) * zoom, y, zoom },
+    { duration: FLY_MS, ease: quadInOut, interpolate: 'linear' },
   );
-  clearTimeout(flashTimer);
-  useFlash.setState({ id });
-  flashTimer = setTimeout(() => useFlash.setState({ id: null }), 1400);
+  // Вспышка — по прилёту: во время полёта узел ещё не там, куда смотрит взгляд.
+  flashTimers.forEach(clearTimeout);
+  useFlash.setState({ id: null });
+  flashTimers = [
+    setTimeout(() => useFlash.setState({ id }), FLY_MS),
+    setTimeout(() => useFlash.setState({ id: null }), FLY_MS + FLASH_MS),
+  ];
 }
