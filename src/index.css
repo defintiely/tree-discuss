@@ -17,22 +17,139 @@ body { background: var(--bg); color: var(--ink); }
 
 .app { display: flex; flex-direction: column; height: 100%; }
 
+/* ── шапка: только меню, заголовок и автор ────────────── */
 .bar {
-  display: flex; align-items: center; gap: 12px;
-  padding: 8px 14px; background: var(--card);
-  border-bottom: 1px solid var(--line); z-index: 5;
+  position: relative; display: flex; align-items: center; gap: 8px;
+  height: 48px; padding: 0 8px; padding-top: env(safe-area-inset-top);
+  background: var(--card); border-bottom: 1px solid var(--line); z-index: 30;
 }
 .bar-grow { flex: 1; }
-/* Панель не переносится на две строки: заголовок и подсказка не жмутся,
-   а подсказка исчезает первой, когда места мало. */
-.bar > strong { white-space: nowrap; }
-@media (max-width: 1500px) { .bar-hint { display: none; } }
-.bar-hint { color: var(--muted); font-size: 13px; }
-.bar button { white-space: nowrap;
-  padding: 6px 12px; border: 1px solid var(--line); border-radius: 7px;
-  background: #fff; cursor: pointer; font-size: 13px;
+.bar-menu {
+  width: 40px; height: 40px; flex: none; font-size: 20px; line-height: 1;
+  border: none; border-radius: 8px; background: none; cursor: pointer; color: var(--ink);
 }
-.bar button:hover { background: #f1f5f9; }
+.bar-menu:hover, .bar-menu.on { background: #f1f5f9; }
+/* Длинное имя комнаты режется многоточием, а не выталкивает ник за край. */
+.bar-title {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px;
+}
+.bar-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: #94a3b8; }
+.bar-dot-saving { background: var(--root); }
+.bar-dot-error { background: #dc2626; }
+.bar-me {
+  max-width: 45vw; flex: none; padding: 7px 12px; font-size: 13.5px; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
+  color: var(--ink); background: #f1f5f9; border: 1px solid var(--line); border-radius: 18px;
+}
+.bar-me:hover { background: #e8eef5; }
+
+/* ── меню ─────────────────────────────────────────────── */
+.menu-veil { position: fixed; inset: 0; z-index: 25; }
+.menu {
+  position: absolute; top: calc(48px + env(safe-area-inset-top)); left: 8px; z-index: 26;
+  width: min(320px, calc(100vw - 16px)); max-height: calc(100% - 64px); overflow-y: auto;
+  display: flex; flex-direction: column; gap: 2px; padding: 6px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 12px 36px rgba(16, 32, 44, 0.18);
+}
+.menu > button, .menu-row button {
+  padding: 11px 12px; text-align: left; font-size: 14px; cursor: pointer;
+  color: var(--ink); background: none; border: none; border-radius: 8px;
+}
+.menu > button:hover, .menu-row button:hover { background: #f1f5f9; }
+.menu-room {
+  display: flex; flex-direction: column; gap: 4px; margin-bottom: 4px; padding: 10px 12px 4px;
+  background: #f8fafc; border: 1px solid var(--line); border-radius: 9px; font-size: 13.5px;
+}
+.menu-room-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-room-state { color: var(--muted); font-size: 12px; }
+.menu-room-saving .menu-room-state { color: var(--root); }
+.menu-room-error { background: #fef2f2; border-color: #fecaca; }
+.menu-room-err { color: #b91c1c; font-size: 12px; line-height: 1.4; }
+.menu-row { display: flex; gap: 4px; margin: 2px -8px 0; }
+.menu-row button { flex: 1; padding: 9px 8px; text-align: center; color: var(--root); font-size: 13px; }
+.menu-w {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px; font-size: 14px; color: var(--ink);
+}
+.menu-w input[type='range'] { flex: 1; min-width: 0; accent-color: var(--root); cursor: pointer; }
+.menu-w-val { min-width: 32px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12.5px; }
+.menu-hint { margin: 6px 12px 6px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+
+/* ── карточка поверх канваса ──────────────────────────── */
+.sh {
+  position: fixed; inset: 0; z-index: 2100; display: flex;
+  align-items: center; justify-content: center; padding: 20px;
+  background: rgba(16, 32, 44, 0.4);
+}
+.sh-box {
+  width: min(400px, 100%); max-height: 100%; display: flex; flex-direction: column;
+  background: var(--card); border-radius: 14px; box-shadow: 0 18px 50px rgba(16, 32, 44, 0.3);
+}
+.sh-head {
+  display: flex; align-items: center; gap: 10px; padding: 14px 16px 8px; font-size: 16px;
+}
+.sh-head strong { flex: 1; }
+.sh-x {
+  width: 34px; height: 34px; font-size: 22px; line-height: 1; cursor: pointer;
+  color: var(--muted); background: none; border: none; border-radius: 8px;
+}
+.sh-x:hover { background: #f1f5f9; color: var(--ink); }
+.sh-body {
+  display: flex; flex-direction: column; gap: 12px; padding: 0 16px 16px; overflow-y: auto;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+}
+.sh-note { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.5; }
+.sh-note strong { color: var(--ink); }
+/* Телефон: карточка выезжает снизу на всю ширину — туда достаёт большой палец. */
+@media (max-width: 600px) {
+  .sh { align-items: flex-end; padding: 0; }
+  .sh-box { width: 100%; max-height: 85%; border-radius: 16px 16px 0 0; }
+}
+
+/* ── выбор автора ─────────────────────────────────────── */
+.ap-list { display: flex; flex-direction: column; gap: 6px; }
+.ap-item {
+  display: flex; align-items: center; gap: 8px; padding: 12px 14px; font-size: 15px;
+  text-align: left; cursor: pointer; color: var(--ink);
+  background: #fff; border: 1px solid var(--line); border-radius: 10px;
+}
+.ap-item:hover { background: #f8fafc; }
+.ap-item.on { border-color: var(--root); background: #eff6ff; }
+.ap-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ap-me { font-size: 12px; color: var(--root); }
+.ap-new { display: flex; gap: 8px; }
+.ap-new input {
+  flex: 1; min-width: 0; padding: 11px 12px; font: inherit; font-size: 16px; color: var(--ink);
+  border: 1px solid var(--line); border-radius: 10px;
+}
+.ap-new input:focus { outline: 2px solid var(--root); outline-offset: -1px; }
+.ap-new button {
+  padding: 0 16px; font-size: 14px; font-weight: 600; cursor: pointer; color: #fff;
+  background: var(--root); border: none; border-radius: 10px;
+}
+.ap-new button:disabled { background: #b8c4d4; cursor: default; }
+
+/* ── голосование за закрытие ветки ────────────────────── */
+.vp-votes { display: flex; flex-wrap: wrap; gap: 6px; }
+.vp-chip {
+  padding: 5px 11px; font-size: 13px; background: #f1f5f9;
+  border: 1px solid var(--line); border-radius: 14px;
+}
+.vp-chip.mine { background: #eff6ff; border-color: #93c5fd; font-weight: 600; }
+.vp-none { margin: 0; color: #94a3b8; font-size: 13px; font-style: italic; }
+.vp-above {
+  margin: 0; padding: 9px 11px; font-size: 12.5px; line-height: 1.45; color: #78350f;
+  background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px;
+}
+.vp-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.vp-actions button {
+  flex: 1 1 140px; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; border-radius: 10px;
+}
+.vp-vote { color: var(--ink); background: #fff; border: 1px solid var(--line); }
+.vp-vote:hover { background: #f1f5f9; }
+.vp-decide { color: #fff; background: #475569; border: 1px solid #475569; }
+.vp-decide.open { background: var(--root); border-color: var(--root); }
+.vp-decide:hover { filter: brightness(1.08); }
 
 .note {
   padding: 8px 14px; background: #fff7ed; border-bottom: 1px solid #fed7aa;
@@ -134,8 +251,30 @@ body { background: var(--bg); color: var(--ink); }
 .dn-color::-webkit-color-swatch { border: none; border-radius: 3px; }
 
 
-.dn-append { margin-left: auto; }
-.dn-reply { }
+.dn-grow { flex: 1; }
+.dn-vote { color: var(--muted); }
+.dn-vote.has { color: var(--ink); background: #f1f5f9; font-weight: 600; }
+.dn-lock {
+  border: none; background: rgba(255, 255, 255, 0.55); border-radius: 9px;
+  padding: 0 5px; font-size: 12px; line-height: 18px; cursor: pointer;
+}
+
+/* Закрытая ветка остаётся читаемой, но уходит на второй план. */
+.dn-closed { opacity: 0.55; filter: grayscale(0.6); }
+.dn-closed:hover { opacity: 0.85; }
+
+/* ── палец ────────────────────────────────────────────── */
+@media (pointer: coarse) {
+  /* Двойной тап — правка текста, а не зум страницы. */
+  .dn-body { touch-action: manipulation; }
+  .dn-r { padding: 6px 11px; font-size: 13px; }
+  .dn-foot { gap: 7px; }
+  .dn-color { width: 24px; height: 24px; }
+  .dn-kind { font-size: 13px; padding: 4px 6px; }
+  .dn-x { font-size: 22px; padding: 0 6px; }
+  .reply-pop { padding: 9px 14px; font-size: 14px; }
+  .dn-pal button { font-size: 22px; padding: 6px 7px; }
+}
 
 .quoted {
   border-radius: 2px; padding: 1px 2px;
@@ -145,13 +284,6 @@ body { background: var(--bg); color: var(--ink); }
 }
 
 /* ── авторство ────────────────────────────────────────── */
-.bar-me { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
-.bar-me input {
-  width: 130px; padding: 5px 8px; font: inherit; font-size: 13px;
-  border: 1px solid var(--line); border-radius: 7px; color: var(--ink);
-}
-.bar-me input:focus { outline: 2px solid var(--root); outline-offset: -1px; }
-
 /* Подпись берёт цвет шапки, поэтому своих цветов здесь нет — только форма. */
 .dn-author {
   font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 9px;
@@ -201,14 +333,6 @@ body { background: var(--bg); color: var(--ink); }
   font-family: 'Cascadia Mono', Consolas, monospace; font-size: 11.5px;
 }
 
-/* ── ширина узлов ─────────────────────────────────────── */
-.bar-w { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--muted); }
-.bar-w input[type='range'] { width: 110px; accent-color: var(--root); cursor: pointer; }
-.bar-w-val {
-  min-width: 34px; text-align: right; font-variant-numeric: tabular-nums;
-  color: var(--ink); font-size: 12.5px;
-}
-
 /* ── вход в комнату ───────────────────────────────────── */
 .gate {
   position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -249,27 +373,6 @@ body { background: var(--bg); color: var(--ink); }
 }
 .gate-local:hover { background: #f1f5f9; }
 
-/* ── индикатор комнаты ────────────────────────────────── */
-.bar-room {
-  display: flex; align-items: center; gap: 7px; padding: 4px 10px;
-  font-size: 12.5px; background: #f1f5f9; border: 1px solid var(--line); border-radius: 8px;
-}
-.bar-room-state { color: var(--muted); font-size: 11.5px; }
-.bar-room-saving .bar-room-state { color: var(--root); }
-.bar-room-error { background: #fef2f2; border-color: #fecaca; }
-.bar-room-error .bar-room-state { color: #b91c1c; }
-.bar-room-out {
-  border: none; background: none; cursor: pointer; color: var(--muted);
-  font-size: 11.5px; text-decoration: underline; padding: 0;
-}
-.bar-room-out:hover { color: var(--ink); }
-
-.bar-room-link {
-  border: none; background: none; cursor: pointer; color: var(--root);
-  font-size: 11.5px; text-decoration: underline; padding: 0;
-}
-.bar-room-link:hover { filter: brightness(0.85); }
-
 .gate-invite {
   margin: 0; padding: 9px 11px; font-size: 13px; line-height: 1.45;
   background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: var(--ink);
@@ -279,3 +382,18 @@ body { background: var(--bg); color: var(--ink); }
   background: none; border: none; cursor: pointer; text-decoration: underline;
 }
 .gate-other:hover { color: var(--ink); }
+
+/* ── телефон: модалка промпта и формы ─────────────────── */
+@media (max-width: 600px) {
+  .ov { padding: 0; }
+  .ov-box { height: 100%; border-radius: 0; }
+  .ov-hint { display: none; }
+  .ov-text { min-height: 0; }
+  .gate { align-items: flex-start; padding: 16px; }
+  .gate-box { padding: 20px; }
+}
+/* iOS приближает страницу при фокусе на поле с шрифтом мельче 16px —
+   после этого канвас приходится отзумливать руками. */
+@media (pointer: coarse) {
+  .gate-field input, .dn-edit { font-size: 16px; }
+}

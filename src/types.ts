@@ -39,6 +39,10 @@ export type TreeNode = {
    * вычисляются anchorStart/anchorEnd; экспорт выписывает его обратно.
    */
   quote: string;
+  /** Ветка (узел и всё под ним) закрыта: приглушена, новые ответы в неё не пишутся. */
+  closed: boolean;
+  /** Ники участников, проголосовавших за закрытие ветки; один ник — один голос. */
+  closeVotes: string[];
 };
 
 export type Reaction = {
@@ -56,7 +60,29 @@ export type DocState = {
    * и разговор о «втором абзаце» теряет смысл.
    */
   width: number;
+  /**
+   * Участники обсуждения — те, от чьего имени здесь можно править. Это подпись,
+   * а не вход: выбрать можно любой ник из списка.
+   */
+  participants: string[];
 };
+
+/**
+ * Документ из облака, файла или старой версии приложения: полей, появившихся
+ * позже, в нём может не быть, а без них голосование падает на undefined.
+ */
+export function normalizeDoc(raw: Partial<DocState> & { nodes: Partial<TreeNode>[] }, width: number): DocState {
+  return {
+    nodes: raw.nodes.map((n) => ({
+      ...(n as TreeNode),
+      closed: Boolean(n.closed),
+      closeVotes: Array.isArray(n.closeVotes) ? n.closeVotes : [],
+    })),
+    reactions: raw.reactions ?? [],
+    width: raw.width ?? width,
+    participants: Array.isArray(raw.participants) ? raw.participants : [],
+  };
+}
 
 /** Кусок текста узла после нарезки по границам якорей его детей. */
 export type TextSegment = {

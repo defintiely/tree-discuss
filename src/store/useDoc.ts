@@ -3,12 +3,15 @@
  */
 
 import { create } from 'zustand';
-import { KIND_TITLE, newId, type DocState, type NodeId, type NodeKind, type TreeNode } from '../types';
+import { KIND_TITLE, newId, normalizeDoc, type DocState, type NodeId, type NodeKind, type TreeNode } from '../types';
 import { DEFAULT_COLOR, randomPastel } from '../colors';
 import { DEFAULT_WIDTH, MAX_WIDTH, MIN_WIDTH } from '../layout';
 
 type DocStore = DocState & {
   replaceAll: (doc: DocState) => void;
+  addParticipant: (name: string) => void;
+  toggleCloseVote: (id: NodeId, author: string) => void;
+  setClosed: (id: NodeId, closed: boolean) => void;
   setWidth: (width: number) => void;
   addReply: (args: {
     parentId: NodeId;
@@ -49,20 +52,40 @@ const ROOT: TreeNode = {
   color: DEFAULT_COLOR,
   author: '',
   quote: '',
+  closed: false,
+  closeVotes: [],
 };
 
 /** Чистый документ новой комнаты: старое дерево в него не просачивается. */
 export function emptyDoc(width: number = DEFAULT_WIDTH): DocState {
-  return { nodes: [{ ...ROOT }], reactions: [], width: clampWidth(width) };
+  return { nodes: [{ ...ROOT }], reactions: [], width: clampWidth(width), participants: [] };
 }
 
 export const useDoc = create<DocStore>((set, get) => ({
   nodes: [ROOT],
   reactions: [],
   width: DEFAULT_WIDTH,
+  participants: [],
 
-  replaceAll: (doc) =>
-    set({ nodes: doc.nodes, reactions: doc.reactions, width: clampWidth(doc.width) }),
+  replaceAll: (doc) => {
+    const d = normalizeDoc(doc, DEFAULT_WIDTH);
+    set({ nodes: d.nodes, reactions: d.reactions, width: clampWidth(d.width), participants: d.participants });
+  },
+
+  addParticipant: (name) =>
+    set((s) => (s.participants.includes(name) ? s : { participants: [...s.participants, name] })),
+
+  toggleCloseVote: (id, author) =>
+    set((s) => ({
+      nodes: s.nodes.map((n) => {
+        if (n.id !== id) return n;
+        const has = n.closeVotes.includes(author);
+        return { ...n, closeVotes: has ? n.closeVotes.filter((a) => a !== author) : [...n.closeVotes, author] };
+      }),
+    })),
+
+  setClosed: (id, closed) =>
+    set((s) => ({ nodes: s.nodes.map((n) => (n.id === id ? { ...n, closed } : n)) })),
 
   // Ширина приезжает из облака и из чужих правок, поэтому границы держит стор,
   // а не разметка ползунка: битое значение иначе растянуло бы узлы на весь экран.
@@ -90,6 +113,8 @@ export const useDoc = create<DocStore>((set, get) => ({
       // Цитата хранится и текстом: так связь читается в выгруженном CSV
       // и переживает возврат файла из внешнего редактора.
       quote: quotes && parent ? parent.text.slice(anchorStart!, anchorEnd!) : '',
+      closed: false,
+      closeVotes: [],
     };
     set((s) => ({ nodes: [...s.nodes, node] }));
     return id;

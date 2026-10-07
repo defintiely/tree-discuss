@@ -24,6 +24,7 @@ import { useRoom } from './rooms/useRoom';
 import { useSync } from './rooms/useSync';
 import { clearRoomInUrl, roomLink } from './rooms/url';
 import { layoutTree, MAX_WIDTH, MIN_WIDTH } from './layout';
+import { AuthorPicker } from './ui/AuthorPicker';
 
 const nodeTypes = { discuss: DiscussNode };
 const edgeTypes = { quote: QuoteEdge };
@@ -31,8 +32,9 @@ const edgeTypes = { quote: QuoteEdge };
 function Canvas() {
   const nodes = useDoc((s) => s.nodes);
   const reactions = useDoc((s) => s.reactions);
+  const participants = useDoc((s) => s.participants);
   const me = useMe((s) => s.name);
-  const setMe = useMe((s) => s.setName);
+  const openPicker = useMe((s) => s.openPicker);
   const width = useDoc((s) => s.width);
   const setWidth = useDoc((s) => s.setWidth);
   const setPos = useDoc((s) => s.setPos);
@@ -40,12 +42,17 @@ function Canvas() {
   const applyLayout = useDoc((s) => s.applyLayout);
   const [note, setNote] = useState<string | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
+  const [menu, setMenu] = useState(false);
   const roomName = useRoom((s) => s.name);
   const roomSync = useRoom((s) => s.sync);
   const roomDirty = useRoom((s) => s.dirty);
   const roomError = useRoom((s) => s.error);
   const leaveRoom = useRoom((s) => s.leave);
   const [copied, setCopied] = useState(false);
+
+  const doc = { nodes, reactions, width, participants };
+  const syncText =
+    roomSync === 'saving' ? 'сохраняю…' : roomSync === 'error' ? 'ошибка синхронизации' : roomDirty ? 'есть несохранённые правки' : 'всё сохранено';
 
   function exitRoom() {
     // Дерево чистится ВМЕСТЕ с комнатой: иначе следующая созданная комната
@@ -69,15 +76,15 @@ function Canvas() {
     // В комнате источник правды — облако. Локальная копия подсунула бы старое
     // дерево поверх загруженного и выглядела бы как чужое содержимое.
     if (roomName) return;
-    void loadDoc().then((doc) => {
-      if (doc) replaceAll(doc);
+    void loadDoc().then((d) => {
+      if (d) replaceAll(d);
     });
   }, [replaceAll, roomName]);
 
   useEffect(() => {
     if (roomName) return;
-    save({ nodes, reactions, width });
-  }, [nodes, reactions, width, save, roomName]);
+    save({ nodes, reactions, width, participants });
+  }, [nodes, reactions, width, participants, save, roomName]);
 
   const rfNodes: RFNode[] = useMemo(
     () => nodes.map((n) => ({ id: n.id, type: 'discuss', position: { x: n.x, y: n.y }, data: { nodeId: n.id } })),
@@ -129,66 +136,87 @@ function Canvas() {
     const nf = pick('node') ?? files[0];
     const rf = pick('reaction');
     try {
-      const doc = parseDoc(await nf.text(), rf ? await rf.text() : '');
-      replaceAll(doc);
-      setNote(`Загружено: ${doc.nodes.length} узлов, ${doc.reactions.length} реакций.`);
+      const parsed = parseDoc(await nf.text(), rf ? await rf.text() : '');
+      replaceAll(parsed);
+      setNote(`Загружено: ${parsed.nodes.length} узлов, ${parsed.reactions.length} реакций.`);
     } catch (err) {
       setNote(`Импорт не удался. ${(err as Error).message}`);
     }
     e.target.value = '';
   }
 
+  /** Пункт меню: действие и сразу закрыть меню, чтобы канвас освободился. */
+  const item = (fn: () => void) => () => {
+    setMenu(false);
+    fn();
+  };
+
   return (
     <div className="app">
-      <div className="bar">
-        <strong>Tree Discuss</strong>
-        <span className="bar-hint">Выдели текст в узле → «Ответить»</span>
-        <span className="bar-grow" />
-        {roomName && (
-          <span className={`bar-room bar-room-${roomSync}`} title={roomError ?? "Комната синхронизируется каждые 10 секунд"}>
-            <strong>{roomName}</strong>
-            <span className="bar-room-state">
-              {roomSync === "saving" ? "сохраняю…" : roomSync === "error" ? "ошибка" : roomDirty ? "есть правки" : "сохранено"}
-            </span>
-            <button className="bar-room-link" onClick={copyLink} title="Скопировать ссылку на комнату">
-              {copied ? "✓ скопирована" : "ссылка"}
-            </button>
-            <button className="bar-room-out" onClick={exitRoom} title="Выйти из комнаты">выйти</button>
-          </span>
+      <header className="bar">
+        <button
+          className={`bar-menu ${menu ? 'on' : ''}`}
+          onClick={() => setMenu((v) => !v)}
+          aria-label="Меню"
+          aria-expanded={menu}
+        >
+          ☰
+        </button>
+        <strong className="bar-title" title={roomName ?? undefined}>
+          {roomName ?? 'Tree Discuss'}
+        </strong>
+        {/* Сохранённое состояние молчит: точка появляется, только когда есть о чём сказать. */}
+        {roomName && (roomSync === 'saving' || roomSync === 'error' || roomDirty) && (
+          <span className={`bar-dot bar-dot-${roomSync}`} title={roomError ?? syncText} />
         )}
-        <label className="bar-me">
-          Я:
-          <input
-            type="text"
-            value={me}
-            placeholder="ваш ник"
-            onChange={(e) => setMe(e.target.value)}
-            title="Ник, которым помечаются созданные вами узлы"
-          />
-        </label>
-        <label className="bar-w" title="Ширина всех узлов на канвасе">
-          Ширина:
-          <input
-            type="range"
-            min={MIN_WIDTH}
-            max={MAX_WIDTH}
-            step={10}
-            value={width}
-            onChange={(e) => setWidth(Number(e.target.value))}
-          />
-          <span className="bar-w-val">{width}</span>
-        </label>
-        <button onClick={sortNodes} title="Разложить дерево по колонкам: уровень ответа — колонка, порядок — по позиции цитаты">
-          Разложить
+        <span className="bar-grow" />
+        <button className="bar-me" onClick={() => openPicker()} title="Сменить автора">
+          {me || 'Представиться'}
         </button>
-        <button onClick={() => setShowPrompt(true)} title="Промпт, которым LLM превратит переписку в CSV">
-          Промпт для LLM
-        </button>
-        <button onClick={() => exportDoc({ nodes, reactions, width })}>Экспорт CSV</button>
-        <button onClick={() => filesRef.current?.click()}>Импорт CSV</button>
-        <input ref={filesRef} type="file" accept=".csv" multiple hidden onChange={onImport} />
-      </div>
+      </header>
+
+      {menu && (
+        <>
+          <div className="menu-veil" onPointerDown={() => setMenu(false)} />
+          <nav className="menu">
+            {roomName && (
+              <section className={`menu-room menu-room-${roomSync}`}>
+                <div className="menu-room-name">
+                  Комната <strong>{roomName}</strong>
+                </div>
+                <div className="menu-room-state" title={roomError ?? undefined}>
+                  {syncText} · синхронизация раз в 10 секунд
+                </div>
+                {roomError && <div className="menu-room-err">{roomError}</div>}
+                <div className="menu-row">
+                  <button onClick={copyLink}>{copied ? '✓ Ссылка скопирована' : 'Скопировать ссылку'}</button>
+                  <button onClick={item(exitRoom)}>Выйти</button>
+                </div>
+              </section>
+            )}
+            <label className="menu-w" title="Ширина всех узлов на канвасе; в комнате она общая">
+              <span>Ширина узлов</span>
+              <input
+                type="range"
+                min={MIN_WIDTH}
+                max={MAX_WIDTH}
+                step={10}
+                value={width}
+                onChange={(e) => setWidth(Number(e.target.value))}
+              />
+              <span className="menu-w-val">{width}</span>
+            </label>
+            <button onClick={item(sortNodes)}>Разложить дерево</button>
+            <button onClick={item(() => setShowPrompt(true))}>Промпт для LLM</button>
+            <button onClick={item(() => exportDoc(doc))}>Экспорт CSV</button>
+            <button onClick={item(() => filesRef.current?.click())}>Импорт CSV</button>
+            <p className="menu-hint">Выдели текст в узле → «Ответить». 🗳 в подвале узла — голос за закрытие ветки.</p>
+          </nav>
+        </>
+      )}
+      <input ref={filesRef} type="file" accept=".csv" multiple hidden onChange={onImport} />
       {showPrompt && <PromptDialog onClose={() => setShowPrompt(false)} />}
+      <AuthorPicker />
       {note && (
         <div className="note" onClick={() => setNote(null)}>
           {note} <span className="note-x">закрыть</span>
@@ -203,6 +231,8 @@ function Canvas() {
         fitView
         minZoom={0.15}
         maxZoom={2}
+        // Двойной тап по тексту узла — правка, а не зум канваса.
+        zoomOnDoubleClick={false}
       >
         <Background gap={20} color="#e2e8f0" />
         <Controls showInteractive={false} />

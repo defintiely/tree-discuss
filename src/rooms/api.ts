@@ -1,4 +1,5 @@
-import type { DocState } from '../types';
+import { normalizeDoc, type DocState } from '../types';
+import { DEFAULT_WIDTH } from '../layout';
 import { decryptJson, encryptJson, passwordVerifier } from './crypto';
 
 /**
@@ -72,7 +73,7 @@ export async function openRoom(name: string, password: string): Promise<{ doc: D
     throw new Error('Неверный пароль.');
   }
   try {
-    return { doc: await decryptJson<DocState>(name, password, row.payload), updatedAt: row.updated_at };
+    return { doc: normalizeDoc(await decryptJson<DocState>(name, password, row.payload), DEFAULT_WIDTH), updatedAt: row.updated_at };
   } catch {
     throw new Error('Содержимое комнаты не читается — возможно, оно записано другим паролем.');
   }
@@ -105,5 +106,7 @@ export async function pullIfNewer(
   // Сравниваем МОМЕНТЫ, а не строки: сервер отдаёт «+00:00», браузер — «Z»,
   // и лексикографически «+00:00» меньше «Z» при одинаковом времени.
   if (!row || Date.parse(row.updated_at) <= Date.parse(since)) return null;
-  return { doc: await decryptJson<DocState>(name, password, row.payload), updatedAt: row.updated_at };
+  // Нормализация здесь, а не после: снимок синхронизации сравнивается с тем, что
+  // окажется в сторе, и недостающие поля иначе выглядели бы как чужая правка.
+  return { doc: normalizeDoc(await decryptJson<DocState>(name, password, row.payload), DEFAULT_WIDTH), updatedAt: row.updated_at };
 }

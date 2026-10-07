@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { DEFAULT_WIDTH, MAX_WIDTH, MIN_WIDTH } from '../layout';
+import { useDoc } from './useDoc';
 
 /**
  * Кто пишет СЕЙЧАС. Это не часть документа: ник живёт в браузере автора,
@@ -8,14 +8,18 @@ import { DEFAULT_WIDTH, MAX_WIDTH, MIN_WIDTH } from '../layout';
  */
 
 const KEY = 'tree-discuss-me';
-const W_KEY = 'tree-discuss-width';
+
+type Action = (me: string) => void;
 
 type Me = {
   name: string;
   setName: (name: string) => void;
-  /** Ширина узлов — одна на весь канвас, настройка вида, а не документа. */
-  width: number;
-  setWidth: (w: number) => void;
+  /** Открыт выбор автора. */
+  picking: boolean;
+  /** Правка, ради которой спросили автора: выполняется сразу после выбора. */
+  pending: Action | null;
+  openPicker: (then?: Action) => void;
+  closePicker: () => void;
 };
 
 function load(): string {
@@ -26,28 +30,10 @@ function load(): string {
   }
 }
 
-function loadWidth(): number {
-  try {
-    const raw = Number(localStorage.getItem(W_KEY));
-    return Number.isFinite(raw) && raw >= MIN_WIDTH && raw <= MAX_WIDTH ? raw : DEFAULT_WIDTH;
-  } catch {
-    return DEFAULT_WIDTH;
-  }
-}
-
 export const useMe = create<Me>((set) => ({
   name: load(),
-  width: loadWidth(),
-
-  setWidth: (w) => {
-    const clamped = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.round(w)));
-    try {
-      localStorage.setItem(W_KEY, String(clamped));
-    } catch {
-      /* приватный режим — ширина проживёт только эту вкладку */
-    }
-    set({ width: clamped });
-  },
+  picking: false,
+  pending: null,
 
   setName: (name) => {
     try {
@@ -57,4 +43,23 @@ export const useMe = create<Me>((set) => ({
     }
     set({ name });
   },
+
+  openPicker: (then) => set({ picking: true, pending: then ?? null }),
+  closePicker: () => set({ picking: false, pending: null }),
 }));
+
+/**
+ * Любая правка идёт от имени участника ЭТОГО обсуждения. Ник, запомненный
+ * браузером в другой комнате, сюда автоматически не переносится — человека
+ * спрашивают, кем он здесь, и правка выполняется после ответа.
+ */
+export function asAuthor(action: Action): void {
+  const me = useMe.getState().name;
+  if (me && useDoc.getState().participants.includes(me)) return action(me);
+  useMe.getState().openPicker(action);
+}
+
+/** Участники для выбора: список обсуждения плюс авторы узлов, если их там нет. */
+export function knownParticipants(participants: string[], authors: string[]): string[] {
+  return [...new Set([...participants, ...authors.filter(Boolean)])];
+}

@@ -17,9 +17,10 @@ export function nodesToCsv(nodes: TreeNode[]): string {
     color: n.color,
     author: n.author,
     quote: n.quote,
+    closed: n.closed ? 1 : '',
   }));
   return Papa.unparse(rows, {
-    columns: ['id', 'parent_id', 'kind', 'title', 'text', 'x', 'y', 'anchor_start', 'anchor_end', 'color', 'author', 'quote'],
+    columns: ['id', 'parent_id', 'kind', 'title', 'text', 'x', 'y', 'anchor_start', 'anchor_end', 'color', 'author', 'quote', 'closed'],
   });
 }
 

@@ -31,6 +31,8 @@ export function nodesFromCsv(text: string): TreeNode[] {
       color: (row.color ?? '').trim() || DEFAULT_COLOR,
       author: (row.author ?? '').trim(),
       quote: (row.quote ?? '').trim(),
+      closed: ['1', 'true', 'да'].includes((row.closed ?? '').trim().toLowerCase()),
+      closeVotes: [],
     };
   });
 }
@@ -53,7 +55,9 @@ export function parseDoc(nodesCsv: string, reactionsCsv: string): DocState {
   resolveQuotes(nodes);
   validate(nodes, reactions);
   // Ширина — свойство комнаты, а не файла обмена: импорт её не меняет.
-  return { nodes, reactions, width: DEFAULT_WIDTH };
+  // Участники выводятся из авторов узлов: отдельного файла для них нет.
+  const participants = [...new Set(nodes.map((n) => n.author).filter(Boolean))];
+  return { nodes, reactions, width: DEFAULT_WIDTH, participants };
 }
 
 /**
