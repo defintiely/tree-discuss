@@ -20,6 +20,11 @@ export type TreeNode = {
   parentId: NodeId | null;
   kind: NodeKind;
   title: string;
+  /**
+   * Короткое название поста, которое дают участники. Пусто — названия нет:
+   * в шапке стоит title, а на дальнем зуме — только серые полосы.
+   */
+  name: string;
   text: string;
   x: number;
   y: number;
@@ -67,6 +72,9 @@ export type DocState = {
   participants: string[];
 };
 
+/** Предел длины названия: на дальнем зуме оно идёт двойным шрифтом и длинное не влезло бы в две строки. */
+export const NAME_MAX = 40;
+
 /**
  * Документ из облака, файла или старой версии приложения: полей, появившихся
  * позже, в нём может не быть, а без них голосование падает на undefined.
@@ -75,6 +83,7 @@ export function normalizeDoc(raw: Partial<DocState> & { nodes: Partial<TreeNode>
   return {
     nodes: raw.nodes.map((n) => ({
       ...(n as TreeNode),
+      name: typeof n.name === 'string' ? n.name.slice(0, NAME_MAX) : '',
       closed: Boolean(n.closed),
       closeVotes: Array.isArray(n.closeVotes) ? n.closeVotes : [],
     })),

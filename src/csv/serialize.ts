@@ -9,6 +9,7 @@ export function nodesToCsv(nodes: TreeNode[]): string {
     parent_id: n.parentId ?? '',
     kind: n.kind,
     title: n.title,
+    name: n.name,
     text: n.text,
     x: Math.round(n.x),
     y: Math.round(n.y),
@@ -20,7 +21,7 @@ export function nodesToCsv(nodes: TreeNode[]): string {
     closed: n.closed ? 1 : '',
   }));
   return Papa.unparse(rows, {
-    columns: ['id', 'parent_id', 'kind', 'title', 'text', 'x', 'y', 'anchor_start', 'anchor_end', 'color', 'author', 'quote', 'closed'],
+    columns: ['id', 'parent_id', 'kind', 'title', 'name', 'text', 'x', 'y', 'anchor_start', 'anchor_end', 'color', 'author', 'quote', 'closed'],
   });
 }
 

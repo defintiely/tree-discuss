@@ -3,7 +3,7 @@
  */
 
 import { create } from 'zustand';
-import { KIND_TITLE, newId, normalizeDoc, type DocState, type NodeId, type NodeKind, type TreeNode } from '../types';
+import { KIND_TITLE, NAME_MAX, newId, normalizeDoc, type DocState, type NodeId, type NodeKind, type TreeNode } from '../types';
 import { DEFAULT_COLOR, randomPastel } from '../colors';
 import { DEFAULT_WIDTH, MAX_WIDTH, MIN_WIDTH } from '../layout';
 
@@ -25,6 +25,7 @@ type DocStore = DocState & {
   setColor: (id: NodeId, color: string) => void;
   applyLayout: (pos: Map<NodeId, { x: number; y: number }>) => void;
   setText: (id: NodeId, text: string) => void;
+  setName: (id: NodeId, name: string) => void;
   setPos: (id: NodeId, x: number, y: number) => void;
   setKind: (id: NodeId, kind: NodeKind) => void;
   bumpReaction: (id: NodeId, emoji: string, delta: number) => void;
@@ -44,6 +45,7 @@ const ROOT: TreeNode = {
   parentId: null,
   kind: 'root',
   title: KIND_TITLE.root,
+  name: '',
   text: 'Центральный тезис. Выдели любой фрагмент этого текста и нажми «Ответить».',
   x: 0,
   y: 0,
@@ -103,6 +105,7 @@ export const useDoc = create<DocStore>((set, get) => ({
       parentId,
       kind: 'reply',
       title: KIND_TITLE.reply,
+      name: '',
       text: '',
       x,
       y,
@@ -133,6 +136,11 @@ export const useDoc = create<DocStore>((set, get) => ({
 
   setText: (id, text) =>
     set((s) => ({ nodes: s.nodes.map((n) => (n.id === id ? { ...n, text } : n)) })),
+
+  setName: (id, name) => {
+    const clean = name.trim().slice(0, NAME_MAX);
+    set((s) => ({ nodes: s.nodes.map((n) => (n.id === id && n.name !== clean ? { ...n, name: clean } : n)) }));
+  },
 
   setPos: (id, x, y) =>
     set((s) => ({ nodes: s.nodes.map((n) => (n.id === id ? { ...n, x, y } : n)) })),

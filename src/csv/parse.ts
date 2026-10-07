@@ -1,5 +1,5 @@
 import Papa from 'papaparse';
-import { KIND_TITLE, type DocState, type NodeKind, type Reaction, type TreeNode } from '../types';
+import { KIND_TITLE, NAME_MAX, type DocState, type NodeKind, type Reaction, type TreeNode } from '../types';
 import { DEFAULT_COLOR } from '../colors';
 import { DEFAULT_WIDTH } from '../layout';
 
@@ -22,6 +22,7 @@ export function nodesFromCsv(text: string): TreeNode[] {
       parentId: opt(row.parent_id),
       kind,
       title: row.title?.trim() || KIND_TITLE[kind],
+      name: (row.name ?? '').trim().slice(0, NAME_MAX),
       text: row.text ?? '',
       x: num(row.x, 'x', line),
       y: num(row.y, 'y', line),

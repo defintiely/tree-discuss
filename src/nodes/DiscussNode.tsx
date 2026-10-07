@@ -8,7 +8,7 @@ import { useAnchors } from '../edges/anchors';
 import { estimateHeight, fullHeight, LOD_ZOOM } from './lod';
 import { asAuthor } from '../store/useMe';
 import { sliceText, placeReply } from './segments';
-import { KIND_TITLE, type NodeKind, type TreeNode } from '../types';
+import { KIND_TITLE, NAME_MAX, type NodeKind, type TreeNode } from '../types';
 import { inkFor, lineFor } from '../colors';
 import { VotePanel } from './VotePanel';
 import { autosize, followCaret } from './followCaret';
@@ -39,6 +39,7 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
   const far = useStore((s) => s.transform[2] < LOD_ZOOM);
   const addReply = useDoc((s) => s.addReply);
   const setText = useDoc((s) => s.setText);
+  const setName = useDoc((s) => s.setName);
   const setKind = useDoc((s) => s.setKind);
   const bumpReaction = useDoc((s) => s.bumpReaction);
   const removeSubtree = useDoc((s) => s.removeSubtree);
@@ -49,6 +50,7 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
+  const [nameDraft, setNameDraft] = useState('');
   const [picker, setPicker] = useState<{ top: number; left: number } | null>(null);
   const [voting, setVoting] = useState(false);
   /** Сколько узлов уйдёт при удалении; null — подтверждение не открыто. */
@@ -187,7 +189,12 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
       >
         <Handle type="target" position={Position.Left} className="dn-handle" />
         <div className="dn-sketch-head" style={{ background: node.color }} {...headNav} />
-        {/* Пальцем — как по тексту полного узла: протяжка по полосам двигает карту, а не узел. */}
+        {/* Пальцем — как по тексту полного узла: протяжка по названию и полосам двигает карту, а не узел. */}
+        {node.name && (
+          <div className={`dn-sketch-name ${TOUCH ? 'nodrag' : ''}`} {...(TOUCH ? pan : {})}>
+            {node.name}
+          </div>
+        )}
         <div className={`dn-sketch-lines ${TOUCH ? 'nodrag' : ''}`} {...(TOUCH ? pan : {})} />
         <Handle type="source" position={Position.Right} className="dn-handle" />
       </div>
@@ -251,12 +258,14 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
   function startEdit(text: string) {
     asAuthor(() => {
       setDraft(text);
+      setNameDraft(node!.name);
       setEditing(true);
     });
   }
 
   function commit() {
     setText(node!.id, draft);
+    setName(node!.id, nameDraft);
     setEditing(false);
   }
 
@@ -277,7 +286,7 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
       <Handle type="target" position={Position.Left} className="dn-handle" />
       <header className="dn-head" style={{ background: node.color, color: inkFor(node.color) }} {...headNav}>
         <span className="dn-icon">{KIND_ICON[node.kind]}</span>
-        <span className="dn-title">{node.title}</span>
+        <span className="dn-title">{node.name || node.title}</span>
         {node.closed && (
           <button className="dn-lock nodrag" onClick={() => setVoting(true)} title="Ветка закрыта — открыть голосование">
             🔒
@@ -329,24 +338,48 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
       </header>
 
       {editing ? (
-        <textarea
-          ref={taRef}
-          className="dn-edit nodrag nowheel"
-          value={draft}
-          onChange={(e) => {
-            setDraft(e.target.value);
-            autosize(e.target);
-            follow(false);
+        <div
+          className="dn-editbox"
+          // Правка кончается, когда фокус ушёл из узла совсем: переход между
+          // названием и текстом — это та же правка.
+          onBlur={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) commit();
           }}
-          // Каретку переставили тапом или стрелками — канвас едет к ней же.
-          onClick={() => follow(false)}
-          onKeyUp={(e) => e.key.startsWith('Arrow') && follow(false)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') commit();
-            e.stopPropagation();
-          }}
-        />
+        >
+          <input
+            className="dn-name-edit nodrag"
+            value={nameDraft}
+            maxLength={NAME_MAX}
+            placeholder="Короткое название — необязательно"
+            onChange={(e) => setNameDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                // Иначе тот же Enter долетит до текста уже в фокусе и вставит пустую строку.
+                e.preventDefault();
+                taRef.current?.focus({ preventScroll: true });
+              }
+              if (e.key === 'Escape') commit();
+              e.stopPropagation();
+            }}
+          />
+          <textarea
+            ref={taRef}
+            className="dn-edit nodrag nowheel"
+            value={draft}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              autosize(e.target);
+              follow(false);
+            }}
+            // Каретку переставили тапом или стрелками — канвас едет к ней же.
+            onClick={() => follow(false)}
+            onKeyUp={(e) => e.key.startsWith('Arrow') && follow(false)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') commit();
+              e.stopPropagation();
+            }}
+          />
+        </div>
       ) : (
         <div
           ref={bodyRef}
