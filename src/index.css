@@ -22,10 +22,14 @@ body { background: var(--bg); color: var(--ink); }
 
 /* ── шапка: только меню, заголовок и автор ────────────── */
 /* Высота шапки — по кнопке ника плюс тонкие поля: в горизонтальной ориентации
-   телефона экран низкий, и каждая строка шапки отнимается у карты. */
+   телефона экран низкий, и каждая строка шапки отнимается у карты.
+   Отступов под вырез экрана (env(safe-area-inset-*)) здесь нет и не должно быть:
+   страница не просит рисовать её под системной строкой (нет viewport-fit=cover),
+   а браузеры, рисующие от края до края (DuckDuckGo на Android), всё равно отдают
+   туда высоту системной строки — над шапкой вырастала пустая полоса. */
 .bar {
   position: relative; display: flex; align-items: center; gap: 6px; flex: none;
-  padding: calc(3px + env(safe-area-inset-top)) 6px 3px;
+  padding: 3px 6px;
   background: var(--card); border-bottom: 1px solid var(--line); z-index: 30;
 }
 .bar-grow { flex: 1; }
@@ -103,7 +107,6 @@ body { background: var(--bg); color: var(--ink); }
 .sh-x:hover { background: #f1f5f9; color: var(--ink); }
 .sh-body {
   display: flex; flex-direction: column; gap: 12px; padding: 0 16px 16px; overflow-y: auto;
-  padding-bottom: calc(16px + env(safe-area-inset-bottom));
 }
 .sh-note { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.5; }
 .sh-note strong { color: var(--ink); }
@@ -421,3 +424,14 @@ body { background: var(--bg); color: var(--ink); }
 @media (pointer: coarse) {
   .gate-field input, .dn-edit { font-size: 16px; }
 }
+
+/* ── перелёт ──────────────────────────────────────────── */
+/* Узел, к которому перелетели: короткая вспышка обводки, чтобы взгляд нашёл его сразу. */
+.dn-flash { animation: dn-flash 1.3s ease-out; }
+@keyframes dn-flash {
+  0%, 35% { box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.55), 0 1px 3px rgba(16, 32, 44, 0.08); }
+  100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0), 0 1px 3px rgba(16, 32, 44, 0.08); }
+}
+/* Цитата и шапка ответа — переходы: курсор говорит об этом до клика. */
+.quoted, .react-flow__node:not([data-id="root"]) .dn-head { cursor: pointer; }
+.react-flow__edge { cursor: pointer; }

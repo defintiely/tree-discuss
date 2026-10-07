@@ -13,6 +13,7 @@ import { inkFor, lineFor } from '../colors';
 import { VotePanel } from './VotePanel';
 import { autosize, followCaret } from './followCaret';
 import { panGesture } from './panGesture';
+import { flyTo, useFlash } from './fly';
 import { Sheet } from '../ui/Sheet';
 
 const PALETTE = ['👍', '👎', '🔥', '🤔', '❤️', '😂', '🎯', '⚠️'];
@@ -54,6 +55,12 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
   const [deleting, setDeleting] = useState<number | null>(null);
   const rf = useReactFlow();
   const pan = useMemo(() => panGesture(rf), [rf]);
+  /** Сюда только что перелетели — узел коротко подсвечен. */
+  const flash = useFlash((s) => s.id === nodeId);
+  /** Где нажали на шапку: тап по ней — переход, а протяжка — перетаскивание узла. */
+  const headDown = useRef<{ x: number; y: number } | null>(null);
+  /** Одиночный тап по цитате ждёт, не окажется ли он началом двойного (правка текста). */
+  const quoteTimer = useRef<ReturnType<typeof setTimeout>>();
   const [sel, setSel] = useState<{ start: number; end: number; top: number; left: number } | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -143,17 +150,43 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
 
   if (!node) return null;
 
+  // Тап по шапке ответа — перелёт к цитате в источнике. Кнопки и поля шапки делают
+  // своё, а протяжка за шапку — это перетаскивание узла, и после неё перелёта нет.
+  const parentId = node.parentId;
+  const headNav = parentId
+    ? {
+        onPointerDown: (e: React.PointerEvent) => {
+          headDown.current = { x: e.clientX, y: e.clientY };
+        },
+        onClick: (e: React.MouseEvent) => {
+          const down = headDown.current;
+          if ((e.target as HTMLElement).closest('button, input, select')) return;
+          if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) return;
+          flyTo(rf, parentId, nodeId);
+        },
+      }
+    : {};
+
+  function toReply(e: React.MouseEvent, childId: string) {
+    // Протянули выделение для новой цитаты — это не тап по старой.
+    if (!window.getSelection()?.isCollapsed) return;
+    // Второй щелчок двойного — правка текста, перелёт отменяет onDoubleClick.
+    if (e.detail > 1) return;
+    clearTimeout(quoteTimer.current);
+    quoteTimer.current = setTimeout(() => flyTo(rf, childId), 250);
+  }
+
   if (sketch) {
     // Издалека — только силуэт: цветная шапка и полосы на месте строк, одним
     // элементом с градиентом. Размер тот же, что у полного узла, иначе стрелки
     // и соседи прыгали бы при переходе через порог зума.
     return (
       <div
-        className={`dn dn-${node.kind} dn-sketch ${selected ? 'dn-sel' : ''} ${locked ? 'dn-closed' : ''}`}
+        className={`dn dn-${node.kind} dn-sketch ${selected ? 'dn-sel' : ''} ${locked ? 'dn-closed' : ''} ${flash ? 'dn-flash' : ''}`}
         style={{ borderTopColor: lineFor(node.color), width, height: fullHeight.get(nodeId) ?? estimateHeight(node.text, width) }}
       >
         <Handle type="target" position={Position.Left} className="dn-handle" />
-        <div className="dn-sketch-head" style={{ background: node.color }} />
+        <div className="dn-sketch-head" style={{ background: node.color }} {...headNav} />
         {/* Пальцем — как по тексту полного узла: протяжка по полосам двигает карту, а не узел. */}
         <div className={`dn-sketch-lines ${TOUCH ? 'nodrag' : ''}`} {...(TOUCH ? pan : {})} />
         <Handle type="source" position={Position.Right} className="dn-handle" />
@@ -238,11 +271,11 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
   return (
     <div
       ref={rootRef}
-      className={`dn dn-${node.kind} ${selected ? 'dn-sel' : ''} ${locked ? 'dn-closed' : ''}`}
+      className={`dn dn-${node.kind} ${selected ? 'dn-sel' : ''} ${locked ? 'dn-closed' : ''} ${flash ? 'dn-flash' : ''}`}
       style={{ borderTopColor: lineFor(node.color), width }}
     >
       <Handle type="target" position={Position.Left} className="dn-handle" />
-      <header className="dn-head" style={{ background: node.color, color: inkFor(node.color) }}>
+      <header className="dn-head" style={{ background: node.color, color: inkFor(node.color) }} {...headNav}>
         <span className="dn-icon">{KIND_ICON[node.kind]}</span>
         <span className="dn-title">{node.title}</span>
         {node.closed && (
@@ -325,6 +358,7 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
           {...(TOUCH ? pan : {})}
           onMouseUp={onMouseUp}
           onDoubleClick={() => {
+            clearTimeout(quoteTimer.current);
             if (!locked) startEdit(node!.text);
           }}
         >
@@ -334,6 +368,8 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
                 key={seg.start}
                 data-seg-start={seg.start}
                 className={seg.anchoredBy.length ? 'quoted' : undefined}
+                // Под фоном цитаты — последний ответ (его цвет и виден), к нему и перелёт.
+                onClick={seg.anchoredBy.length ? (e) => toReply(e, seg.anchoredBy[seg.anchoredBy.length - 1]) : undefined}
                 style={
                   seg.anchoredBy.length
                     ? {

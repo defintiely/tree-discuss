@@ -1,8 +1,5 @@
 import type { ReactFlowInstance } from '@xyflow/react';
-import { MAX_ZOOM } from './lod';
-
-/** Палец: экран узкий, текст читаем только при ширине узла во весь экран. */
-const TOUCH = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
+import { readableZoom } from './fly';
 
 /** Где в textarea строка с кареткой: отступ от верха поля и высота строки, без зума канваса. */
 function caretLine(ta: HTMLTextAreaElement): { top: number; height: number } {
@@ -53,8 +50,7 @@ export function followCaret(
   const visBottom = Math.min(rect.bottom, vv ? vv.offsetTop + vv.height : window.innerHeight);
   if (visBottom - visTop < 40) return;
 
-  const fit = Math.min(MAX_ZOOM, (rect.width - 24) / width);
-  const zoom = TOUCH ? fit : Math.min(Math.max(rf.getZoom(), 0.8), fit);
+  const zoom = readableZoom(rect.width, width, rf.getZoom());
 
   const line = caretLine(ta);
   // offsetTop поля — от обёртки узла, которая стоит в точке (x, y) канваса.

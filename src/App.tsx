@@ -15,7 +15,9 @@ import '@xyflow/react/dist/style.css';
 import { emptyDoc, useDoc } from './store/useDoc';
 import { useMe } from './store/useMe';
 import { DiscussNode } from './nodes/DiscussNode';
-import { QuoteEdge } from './edges/QuoteEdge';
+import { QuoteEdge, quoteStart } from './edges/QuoteEdge';
+import { useAnchors } from './edges/anchors';
+import { flyTo } from './nodes/fly';
 import { exportDoc } from './csv/serialize';
 import { parseDoc } from './csv/parse';
 import { loadDoc, makeDebouncedSave } from './storage/persist';
@@ -148,7 +150,33 @@ function Canvas() {
     [setPos],
   );
 
-  const { fitView } = useReactFlow();
+  const rf = useReactFlow();
+  const { fitView } = rf;
+
+  /**
+   * Тап по линии — перелёт к противоположному концу: ближе к стрелке — в цитату
+   * источника, ближе к началу — в ответ. Концы считаются так же, как их рисует QuoteEdge.
+   */
+  const onEdgeClick = useCallback(
+    (e: React.MouseEvent, edge: Edge) => {
+      const src = rf.getInternalNode(edge.source);
+      const dst = rf.getInternalNode(edge.target);
+      if (!src || !dst) return;
+      const p = rf.screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      const anchor = (edge.data as { anchorStart?: number | null } | undefined)?.anchorStart;
+      const start = quoteStart(src, useAnchors.getState().y[edge.target], anchor !== null && anchor !== undefined);
+      const end = {
+        x: dst.internals.positionAbsolute.x,
+        y: dst.internals.positionAbsolute.y + (dst.measured?.height ?? 150) / 2,
+      };
+      if (Math.hypot(p.x - end.x, p.y - end.y) < Math.hypot(p.x - start.x, p.y - start.y)) {
+        flyTo(rf, edge.source, edge.target);
+      } else {
+        flyTo(rf, edge.target);
+      }
+    },
+    [rf],
+  );
   const far = useStore((s) => s.transform[2] < LOD_ZOOM);
 
   function sortNodes() {
@@ -259,6 +287,7 @@ function Canvas() {
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
+        onEdgeClick={onEdgeClick}
         fitView
         minZoom={MIN_ZOOM}
         maxZoom={MAX_ZOOM}
