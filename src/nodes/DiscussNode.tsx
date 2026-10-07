@@ -1,12 +1,14 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Handle, Position, useReactFlow, type NodeProps } from '@xyflow/react';
 import { useDoc } from '../store/useDoc';
 import { asAuthor } from '../store/useMe';
 import { sliceText, placeReply } from './segments';
 import { KIND_TITLE, type NodeKind, type TreeNode } from '../types';
 import { inkFor, lineFor } from '../colors';
 import { VotePanel } from './VotePanel';
+import { autosize, followCaret } from './followCaret';
+import { Sheet } from '../ui/Sheet';
 
 const PALETTE = ['👍', '👎', '🔥', '🤔', '❤️', '😂', '🎯', '⚠️'];
 
@@ -50,6 +52,9 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
   const [draft, setDraft] = useState('');
   const [picker, setPicker] = useState<{ top: number; left: number } | null>(null);
   const [voting, setVoting] = useState(false);
+  /** Сколько узлов уйдёт при удалении; null — подтверждение не открыто. */
+  const [deleting, setDeleting] = useState<number | null>(null);
+  const rf = useReactFlow();
   const [sel, setSel] = useState<{ start: number; end: number; top: number; left: number } | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -57,11 +62,27 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
 
   const locked = Boolean(node?.closed) || closedAbove;
 
+  /** Канвас за кареткой. Читает узел из стора: замыкание старого рендера отдало бы старую позицию. */
+  function follow(animate: boolean) {
+    const ta = taRef.current;
+    const n = useDoc.getState().nodes.find((x) => x.id === nodeId);
+    if (ta && n) followCaret(ta, n, useDoc.getState().width, rf, animate);
+  }
+
   useLayoutEffect(() => {
-    if (editing && taRef.current) {
-      taRef.current.focus();
-      taRef.current.setSelectionRange(taRef.current.value.length, taRef.current.value.length);
-    }
+    const ta = taRef.current;
+    if (!editing || !ta) return;
+    // preventScroll: иначе браузер сам прокрутит страницу к полю и собьёт
+    // расчёт видимой части экрана.
+    ta.focus({ preventScroll: true });
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+    autosize(ta);
+    follow(true);
+    // Клавиатура выезжает уже после фокуса и съедает низ экрана — выравниваемся ещё раз.
+    const vv = window.visualViewport;
+    const onResize = () => follow(false);
+    vv?.addEventListener('resize', onResize);
+    return () => vv?.removeEventListener('resize', onResize);
   }, [editing]);
 
   useEffect(() => {
@@ -170,11 +191,9 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
   }
 
   function doDelete() {
-    asAuthor(() => {
-      const count = subtreeIds(node!.id).length;
-      const what = count === 1 ? 'Удалить этот узел?' : `Удалить ${count} узлов (узел и все ответы на него)?`;
-      if (window.confirm(what)) removeSubtree(node!.id);
-    });
+    // Своё окно, а не window.confirm: встроенные браузеры мессенджеров глушат
+    // системные диалоги, confirm сразу отвечает «нет», и крестик молчал.
+    asAuthor(() => setDeleting(subtreeIds(node!.id).length));
   }
 
   const votes = node.closeVotes.length;
@@ -243,7 +262,14 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
           ref={taRef}
           className="dn-edit nodrag nowheel"
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            autosize(e.target);
+            follow(false);
+          }}
+          // Каретку переставили тапом или стрелками — канвас едет к ней же.
+          onClick={() => follow(false)}
+          onKeyUp={(e) => e.key.startsWith('Arrow') && follow(false)}
           onBlur={commit}
           onKeyDown={(e) => {
             if (e.key === 'Escape') commit();
@@ -386,6 +412,27 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
         </button>
       </footer>
       {voting && <VotePanel nodeId={node.id} closedAbove={closedAbove} onClose={() => setVoting(false)} />}
+      {deleting !== null && (
+        <Sheet title={deleting === 1 ? 'Удалить узел?' : `Удалить ${deleting} узлов?`} onClose={() => setDeleting(null)}>
+          <p className="sh-note">
+            {deleting === 1 ? 'Узел исчезнет у всех участников.' : 'Узел и все ответы на него исчезнут у всех участников.'}
+          </p>
+          <div className="vp-actions">
+            <button className="vp-vote" onClick={() => setDeleting(null)}>
+              Отмена
+            </button>
+            <button
+              className="vp-decide danger"
+              onClick={() => {
+                setDeleting(null);
+                removeSubtree(node!.id);
+              }}
+            >
+              Удалить
+            </button>
+          </div>
+        </Sheet>
+      )}
       <Handle type="source" position={Position.Right} className="dn-handle" />
     </div>
   );

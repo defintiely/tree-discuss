@@ -16,11 +16,14 @@ html, body, #root { height: 100%; margin: 0; }
 body { background: var(--bg); color: var(--ink); }
 
 .app { display: flex; flex-direction: column; height: 100%; }
+/* Канвас по умолчанию просит height: 100% — вместе с шапкой это больше экрана,
+   и флекс ужимал шапку ниже кнопки ника. Канвас забирает только остаток. */
+.app > .react-flow { flex: 1 1 0; min-height: 0; height: auto; }
 
 /* ── шапка: только меню, заголовок и автор ────────────── */
 .bar {
-  position: relative; display: flex; align-items: center; gap: 8px;
-  height: 48px; padding: 0 8px; padding-top: env(safe-area-inset-top);
+  position: relative; display: flex; align-items: center; gap: 8px; flex: none;
+  height: calc(48px + env(safe-area-inset-top)); padding: 0 8px; padding-top: env(safe-area-inset-top);
   background: var(--card); border-bottom: 1px solid var(--line); z-index: 30;
 }
 .bar-grow { flex: 1; }
@@ -150,6 +153,7 @@ body { background: var(--bg); color: var(--ink); }
 .vp-decide { color: #fff; background: #475569; border: 1px solid #475569; }
 .vp-decide.open { background: var(--root); border-color: var(--root); }
 .vp-decide:hover { filter: brightness(1.08); }
+.vp-decide.danger { background: #dc2626; border-color: #dc2626; }
 
 .note {
   padding: 8px 14px; background: #fff7ed; border-bottom: 1px solid #fed7aa;
@@ -201,7 +205,9 @@ body { background: var(--bg); color: var(--ink); }
 }
 .dn-empty { color: #b3bdc9; font-style: italic; }
 .dn-edit {
-  width: 100%; min-height: 110px; border: none; padding: 10px; resize: vertical;
+  /* Высоту ставит код под длину текста: строка, ушедшая во внутренний скролл,
+     пропала бы из поля зрения, пока по ней печатают. */
+  display: block; width: 100%; min-height: 110px; border: none; padding: 10px; resize: none; overflow: hidden;
   font: inherit; font-size: 13.5px; line-height: 1.55; outline: 2px solid var(--root);
   outline-offset: -2px;
 }
