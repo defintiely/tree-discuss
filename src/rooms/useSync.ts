@@ -33,40 +33,46 @@ export function useSync() {
   const live = useRef({ doc, roomName, password });
   live.current = { doc, roomName, password };
 
-  /** Снимок того, что уже лежит в облаке. Пусто — снимка ещё нет. */
-  const synced = useRef<string>('');
+  /**
+   * Документ, который уже лежит в облаке. Сравнивается ПО ССЫЛКАМ полей: стор
+   * неизменяемый, любая правка даёт новый массив. Сериализация всего документа
+   * на каждое изменение стоила бы JSON всего дерева на каждый кадр перетаскивания.
+   */
+  const synced = useRef<DocState | null>(null);
   const busy = useRef(false);
 
-  const shot = (d: DocState) => JSON.stringify(d);
+  const same = (a: DocState, b: DocState | null) =>
+    !!b && a.nodes === b.nodes && a.reactions === b.reactions && a.width === b.width && a.participants === b.participants;
 
   useEffect(() => {
     if (!roomName) return;
     // Дерево отличается от облачного снимка — значит его правили.
-    if (synced.current && shot({ nodes, reactions, width, participants }) !== synced.current) markDirty();
+    if (synced.current && !same({ nodes, reactions, width, participants }, synced.current)) markDirty();
   }, [nodes, reactions, width, participants, roomName, markDirty]);
 
   useEffect(() => {
     if (!roomName || !password) return;
     // Вход: то, что сейчас на экране, и есть содержимое облака.
-    synced.current = shot(live.current.doc);
+    synced.current = live.current.doc;
 
     const tick = async () => {
       const { roomName: room, password: pass, doc: d } = live.current;
       if (!room || !pass || busy.current) return;
       busy.current = true;
       try {
-        const current = shot(d);
-        if (current !== synced.current) {
+        if (!same(d, synced.current)) {
           setSync('saving');
           const at = await saveRoom(room, pass, d);
-          synced.current = current;
+          synced.current = d;
           setUpdatedAt(at);
           setSync('saved');
         } else {
           const fresh = await pullIfNewer(room, pass, useRoom.getState().updatedAt);
           if (fresh) {
-            synced.current = shot(fresh.doc);
             replaceAll(fresh.doc);
+            // Снимок — то, что реально оказалось в сторе после нормализации.
+            const s = useDoc.getState();
+            synced.current = { nodes: s.nodes, reactions: s.reactions, width: s.width, participants: s.participants };
             setUpdatedAt(fresh.updatedAt);
             setSync('saved');
           }

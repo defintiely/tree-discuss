@@ -6,6 +6,7 @@ import {
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
+  useStore,
   type Edge,
   type Node as RFNode,
   type NodeChange,
@@ -25,9 +26,58 @@ import { useSync } from './rooms/useSync';
 import { clearRoomInUrl, roomLink } from './rooms/url';
 import { layoutTree, MAX_WIDTH, MIN_WIDTH } from './layout';
 import { AuthorPicker } from './ui/AuthorPicker';
+import type { TreeNode } from './types';
+import { estimateHeight, fullHeight, LOD_ZOOM } from './nodes/lod';
 
 const nodeTypes = { discuss: DiscussNode };
 const edgeTypes = { quote: QuoteEdge };
+
+// Узел и стрелка канваса создаются один раз на версию узла дерева. Новый объект
+// на каждое изменение стора заставлял бы React Flow перерисовывать ВСЕ узлы и
+// стрелки при перетаскивании одного — memo на узле при этом не срабатывает.
+// Кэш узлов — на каждую ширину свой: от неё зависит ожидаемый размер.
+let rfNodeOf = new WeakMap<TreeNode, RFNode>();
+let rfNodeWidth = 0;
+const rfEdgeOf = new WeakMap<TreeNode, Edge>();
+
+function toRfNode(n: TreeNode, width: number): RFNode {
+  if (width !== rfNodeWidth) {
+    rfNodeOf = new WeakMap();
+    rfNodeWidth = width;
+  }
+  let v = rfNodeOf.get(n);
+  if (!v) {
+    v = {
+      id: n.id,
+      type: 'discuss',
+      position: { x: n.x, y: n.y },
+      data: { nodeId: n.id },
+      // Узел за кадром не рисуется и потому не измерен. Без ожидаемого размера
+      // React Flow считал бы его нулевой точкой: «вписать всё» его бы пропускало,
+      // а проверка видимости не пускала бы в кадр.
+      initialWidth: width,
+      initialHeight: fullHeight.get(n.id) ?? estimateHeight(n.text, width),
+    };
+    rfNodeOf.set(n, v);
+  }
+  return v;
+}
+
+function toRfEdge(n: TreeNode): Edge {
+  let v = rfEdgeOf.get(n);
+  if (!v) {
+    v = {
+      id: `e-${n.id}`,
+      source: n.parentId as string,
+      target: n.id,
+      type: 'quote',
+      data: { anchorStart: n.anchorStart, color: n.color },
+      markerEnd: { type: MarkerType.ArrowClosed, color: n.color },
+    };
+    rfEdgeOf.set(n, v);
+  }
+  return v;
+}
 
 function Canvas() {
   const nodes = useDoc((s) => s.nodes);
@@ -86,25 +136,8 @@ function Canvas() {
     save({ nodes, reactions, width, participants });
   }, [nodes, reactions, width, participants, save, roomName]);
 
-  const rfNodes: RFNode[] = useMemo(
-    () => nodes.map((n) => ({ id: n.id, type: 'discuss', position: { x: n.x, y: n.y }, data: { nodeId: n.id } })),
-    [nodes],
-  );
-
-  const rfEdges: Edge[] = useMemo(
-    () =>
-      nodes
-        .filter((n) => n.parentId)
-        .map((n) => ({
-          id: `e-${n.id}`,
-          source: n.parentId as string,
-          target: n.id,
-          type: 'quote',
-          data: { anchorStart: n.anchorStart, color: n.color },
-          markerEnd: { type: MarkerType.ArrowClosed, color: n.color },
-        })),
-    [nodes],
-  );
+  const rfNodes: RFNode[] = useMemo(() => nodes.map((n) => toRfNode(n, width)), [nodes, width]);
+  const rfEdges: Edge[] = useMemo(() => nodes.filter((n) => n.parentId).map(toRfEdge), [nodes]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
@@ -116,15 +149,12 @@ function Canvas() {
   );
 
   const { fitView } = useReactFlow();
+  const far = useStore((s) => s.transform[2] < LOD_ZOOM);
 
   function sortNodes() {
-    // Высоты берём из DOM: узлы разной длины, и по оценке крупные наложились бы.
-    const heights = new Map<string, number>();
-    for (const el of document.querySelectorAll<HTMLElement>('.react-flow__node')) {
-      const id = el.dataset.id;
-      const h = el.querySelector<HTMLElement>('.dn')?.offsetHeight;
-      if (id && h) heights.set(id, h);
-    }
+    // Высоты — замеренные самими узлами при полной отрисовке; узел за кадром в DOM
+    // отсутствует, для ни разу не нарисованного берётся оценка по длине текста.
+    const heights = new Map(nodes.map((n) => [n.id, fullHeight.get(n.id) ?? estimateHeight(n.text, width)]));
     applyLayout(layoutTree(nodes, heights, width));
     setTimeout(() => void fitView({ duration: 400, padding: 0.15 }), 60);
   }
@@ -233,6 +263,11 @@ function Canvas() {
         maxZoom={2}
         // Двойной тап по тексту узла — правка, а не зум канваса.
         zoomOnDoubleClick={false}
+        // Вблизи узлы и стрелки за кадром не живут в DOM: крупный план одного узла
+        // не платит за текст всего дерева. Издалека отсев выключен — в кадре и так
+        // почти всё, силуэты дешёвые, а сам пересчёт видимости на каждом кадре
+        // панорамы обходился дороже, чем рисование.
+        onlyRenderVisibleElements={!far}
       >
         <Background gap={20} color="#e2e8f0" />
         <Controls showInteractive={false} />

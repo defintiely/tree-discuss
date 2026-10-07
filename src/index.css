@@ -266,7 +266,19 @@ body { background: var(--bg); color: var(--ink); }
 }
 
 /* Закрытая ветка остаётся читаемой, но уходит на второй план. */
-.dn-closed { opacity: 0.55; filter: grayscale(0.6); }
+/* Только прозрачность: filter заставлял бы браузер держать под каждый закрытый
+   узел отдельный слой и пересчитывать его при каждом сдвиге канваса. */
+.dn-closed { opacity: 0.5; }
+
+/* Силуэт узла на дальнем зуме: шапка цвета узла и серые полосы вместо строк. */
+.dn-sketch { display: flex; flex-direction: column; overflow: hidden; }
+.dn-sketch-head { height: 30px; flex: none; border-radius: 7px 7px 0 0; }
+.dn-sketch-lines {
+  /* Полоса на две строки текста: издалека частые тонкие полосы сливаются в штриховку. */
+  flex: 1; margin: 14px 18px 18px;
+  background: repeating-linear-gradient(to bottom, #d5dce5 0 18px, transparent 18px 44px);
+  border-radius: 4px;
+}
 .dn-closed:hover { opacity: 0.85; }
 
 /* ── палец ────────────────────────────────────────────── */

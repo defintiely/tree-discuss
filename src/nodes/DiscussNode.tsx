@@ -1,7 +1,11 @@
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Handle, Position, useReactFlow, type NodeProps } from '@xyflow/react';
+import { Handle, Position, useReactFlow, useStore, type NodeProps } from '@xyflow/react';
+import { useShallow } from 'zustand/react/shallow';
 import { useDoc } from '../store/useDoc';
+import { childrenOf, closedAbove as isClosedAbove, treeIndex } from '../store/treeIndex';
+import { useAnchors } from '../edges/anchors';
+import { estimateHeight, fullHeight, LOD_ZOOM } from './lod';
 import { asAuthor } from '../store/useMe';
 import { sliceText, placeReply } from './segments';
 import { KIND_TITLE, type NodeKind, type TreeNode } from '../types';
@@ -21,10 +25,16 @@ export type DiscussNodeData = { nodeId: string };
 
 function DiscussNodeImpl({ data, selected }: NodeProps) {
   const nodeId = (data as DiscussNodeData).nodeId;
-  // Селекторы отдают ТОЛЬКО поля стора: массив, собранный внутри селектора,
-  // каждый раз новый по ссылке, и zustand уходит в бесконечный ререндер.
-  const allNodes = useDoc((s) => s.nodes);
-  const allReactions = useDoc((s) => s.reactions);
+  // Узел подписан только на СВОИ данные: правка или перетаскивание соседа его не
+  // перерисовывает. Списки сравниваются поэлементно (useShallow) — массив,
+  // собранный в селекторе, каждый раз новый по ссылке.
+  const node = useDoc((s) => treeIndex(s.nodes).byId.get(nodeId));
+  const children = useDoc(useShallow((s) => childrenOf(s.nodes, nodeId)));
+  const reactions = useDoc(useShallow((s) => s.reactions.filter((r) => r.nodeId === nodeId)));
+  /** Закрыт кто-то из предков: ветка приглушена вместе с ним. */
+  const closedAbove = useDoc((s) => isClosedAbove(s.nodes, nodeId));
+  /** Дальний зум: вместо текста серые полосы. Перерисовка — только при пересечении порога. */
+  const far = useStore((s) => s.transform[2] < LOD_ZOOM);
   const addReply = useDoc((s) => s.addReply);
   const setText = useDoc((s) => s.setText);
   const setKind = useDoc((s) => s.setKind);
@@ -33,20 +43,7 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
   const subtreeIds = useDoc((s) => s.subtreeIds);
   const setColor = useDoc((s) => s.setColor);
   const width = useDoc((s) => s.width);
-
-  const node = useMemo(() => allNodes.find((n) => n.id === nodeId), [allNodes, nodeId]);
-  const children = useMemo(() => allNodes.filter((n) => n.parentId === nodeId), [allNodes, nodeId]);
-  const reactions = useMemo(() => allReactions.filter((r) => r.nodeId === nodeId), [allReactions, nodeId]);
-  /** Закрыт кто-то из предков: ветка приглушена вместе с ним. */
-  const closedAbove = useMemo(() => {
-    const byId = new Map(allNodes.map((n) => [n.id, n]));
-    let cur = node?.parentId ? byId.get(node.parentId) : undefined;
-    while (cur) {
-      if (cur.closed) return true;
-      cur = cur.parentId ? byId.get(cur.parentId) : undefined;
-    }
-    return false;
-  }, [allNodes, node]);
+  const putAnchors = useAnchors((s) => s.put);
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
@@ -57,10 +54,30 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
   const rf = useReactFlow();
   const [sel, setSel] = useState<{ start: number; end: number; top: number; left: number } | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const addRef = useRef<HTMLButtonElement>(null);
 
   const locked = Boolean(node?.closed) || closedAbove;
+  // Узел, в котором печатают, остаётся полным на любом зуме: поле ввода не пропадает из-под пальцев.
+  const sketch = far && !editing;
+
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    const body = bodyRef.current;
+    if (sketch || !root) return;
+    fullHeight.set(nodeId, root.offsetHeight);
+    if (!body) return;
+    // offsetTop цитаты — от тела узла (у него position: relative), тело — от обёртки
+    // узла; оба без зума канваса, то есть сразу в координатах канваса.
+    const entries: [string, number][] = [];
+    for (const c of children) {
+      if (c.anchorStart === null) continue;
+      const span = body.querySelector<HTMLElement>(`[data-seg-start="${c.anchorStart}"]`);
+      if (span) entries.push([c.id, body.offsetTop + span.offsetTop + span.offsetHeight / 2]);
+    }
+    if (entries.length) putAnchors(entries);
+  });
 
   /** Канвас за кареткой. Читает узел из стора: замыкание старого рендера отдало бы старую позицию. */
   function follow(animate: boolean) {
@@ -116,13 +133,30 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
   useEffect(() => {
     // На телефоне выделение тянут ручками, mouseup при этом не приходит —
     // кнопку ответа приходится вешать на само изменение выделения.
-    if (!TOUCH || editing || locked) return;
+    if (!TOUCH || editing || locked || sketch) return;
     const onChange = () => setSel(readSelection());
     document.addEventListener('selectionchange', onChange);
     return () => document.removeEventListener('selectionchange', onChange);
-  }, [editing, locked]);
+  }, [editing, locked, sketch]);
 
   if (!node) return null;
+
+  if (sketch) {
+    // Издалека — только силуэт: цветная шапка и полосы на месте строк, одним
+    // элементом с градиентом. Размер тот же, что у полного узла, иначе стрелки
+    // и соседи прыгали бы при переходе через порог зума.
+    return (
+      <div
+        className={`dn dn-${node.kind} dn-sketch ${selected ? 'dn-sel' : ''} ${locked ? 'dn-closed' : ''}`}
+        style={{ borderTopColor: lineFor(node.color), width, height: fullHeight.get(nodeId) ?? estimateHeight(node.text, width) }}
+      >
+        <Handle type="target" position={Position.Left} className="dn-handle" />
+        <div className="dn-sketch-head" style={{ background: node.color }} />
+        <div className="dn-sketch-lines" />
+        <Handle type="source" position={Position.Right} className="dn-handle" />
+      </div>
+    );
+  }
   const segments = sliceText(node.text, children);
 
   /** Смещение в ПОЛНОМ тексте узла: начало сегмента + позиция внутри него. */
@@ -200,6 +234,7 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
 
   return (
     <div
+      ref={rootRef}
       className={`dn dn-${node.kind} ${selected ? 'dn-sel' : ''} ${locked ? 'dn-closed' : ''}`}
       style={{ borderTopColor: lineFor(node.color), width }}
     >
