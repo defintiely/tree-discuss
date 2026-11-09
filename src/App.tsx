@@ -30,7 +30,7 @@ import { useSync } from './rooms/useSync';
 import { clearRoomInUrl, roomLink } from './rooms/url';
 import { layoutTree, MAX_WIDTH, MIN_WIDTH } from './layout';
 import { AuthorPicker } from './ui/AuthorPicker';
-import { FeedPill, FeedSheet, FeedSide, useAwaiting, useFeed } from './ui/AwaitingFeed';
+import { FeedPill, FeedSheet, FeedSide, useAwaiting, useFeed, useFresh } from './ui/AwaitingFeed';
 import type { TreeNode } from './types';
 import { estimateHeight, fullHeight, LOD_ZOOM, MAX_ZOOM, MIN_ZOOM } from './nodes/lod';
 
@@ -199,6 +199,7 @@ function Canvas() {
 
   const editingId = useEditing((s) => s.id);
   const awaiting = useAwaiting();
+  const fresh = useFresh();
   const feed = useFeed();
 
   function sortNodes() {
@@ -250,7 +251,7 @@ function Canvas() {
           <span className={`bar-dot bar-dot-${roomSync}`} title={roomError ?? syncText} />
         )}
         <span className="bar-grow" />
-        <FeedPill count={awaiting.length} onClick={feed.toggle} open={feed.sideOpen || feed.sheetOpen} />
+        <FeedPill count={awaiting.length} fresh={fresh.length} onClick={feed.toggle} open={feed.sideOpen || feed.sheetOpen} />
         <button className="bar-me" onClick={() => openPicker()} title="Сменить автора">
           {me || 'Представиться'}
         </button>
@@ -304,7 +305,7 @@ function Canvas() {
           {note} <span className="note-x">закрыть</span>
         </div>
       )}
-      {feed.sheetOpen && <FeedSheet items={awaiting} onClose={feed.closeSheet} />}
+      {feed.sheetOpen && <FeedSheet items={awaiting} fresh={fresh} onClose={feed.closeSheet} />}
       {/* Лента — колонка рядом с картой, а не поверх: сообщения у правого края не прячутся под ней. */}
       <div className="main">
       <ReactFlow
@@ -330,7 +331,7 @@ function Canvas() {
         <Background gap={20} color="#e2e8f0" />
         <Controls showInteractive={false} />
       </ReactFlow>
-      {feed.sideOpen && <FeedSide items={awaiting} onHide={feed.hideSide} />}
+      {feed.sideOpen && <FeedSide items={awaiting} fresh={fresh} onHide={feed.hideSide} />}
       </div>
     </div>
   );

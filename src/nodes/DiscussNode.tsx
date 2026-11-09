@@ -7,7 +7,7 @@ import { childrenOf, closedAbove as isClosedAbove, treeIndex } from '../store/tr
 import { useAnchors } from '../edges/anchors';
 import { estimateHeight, fullHeight, LOD_ZOOM } from './lod';
 import { asAuthor, useMe } from '../store/useMe';
-import { isAwaiting } from '../store/awaiting';
+import { hasFresh, isAwaiting } from '../store/awaiting';
 import { sliceText, placeReply } from './segments';
 import { KIND_TITLE, NAME_MAX, type NodeKind, type TreeNode } from '../types';
 import { inkFor, lineFor } from '../colors';
@@ -52,6 +52,32 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
   /** Сообщение ждёт ответа того, кто сейчас пишет: красный кружок на углу. */
   const me = useMe((s) => s.name);
   const awaiting = useDoc((s) => isAwaiting(s.nodes, s.reactions, me, nodeId));
+  /** На своё сообщение пришли отклики, которых автор ещё не видел: белый кружок. */
+  const fresh = useDoc((s) => hasFresh(s.nodes, s.reactions, me, nodeId));
+  const ackResponses = useDoc((s) => s.ackResponses);
+  const ack = () => {
+    if (fresh) ackResponses([nodeId]);
+  };
+  /** Окно голосования — тоже просмотр откликов: в нём видно, кто голосовал. */
+  const openVoting = () => {
+    ack();
+    setVoting(true);
+  };
+  const badges = (
+    <>
+      {awaiting && <span className="dn-badge" title="Ждёт вашего ответа" />}
+      {fresh && (
+        <button
+          className="dn-badge dn-badge-fresh nodrag"
+          title="Новые реакции или голоса — нажмите, чтобы отметить просмотренными"
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            ack();
+          }}
+        />
+      )}
+    </>
+  );
   /** Дальний зум: вместо текста серые полосы. Перерисовка — только при пересечении порога. */
   const far = useStore((s) => s.transform[2] < LOD_ZOOM);
   const addReply = useDoc((s) => s.addReply);
@@ -224,7 +250,7 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
     // и соседи прыгали бы при переходе через порог зума.
     return (
       <>
-      {awaiting && <span className="dn-badge" title="Ждёт вашего ответа" />}
+      {badges}
       <div
         className={`dn dn-${node.kind} dn-sketch ${selected ? 'dn-sel' : ''} ${locked ? 'dn-closed' : ''} ${flash ? 'dn-flash' : ''}`}
         style={{ borderTopColor: lineFor(node.color), width, height: fullHeight.get(nodeId) ?? estimateHeight(node.text, width) }}
@@ -340,7 +366,7 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
 
   return (
     <>
-    {awaiting && <span className="dn-badge" title="Ждёт вашего ответа" />}
+    {badges}
     <div
       ref={rootRef}
       className={`dn dn-${node.kind} ${selected ? 'dn-sel' : ''} ${locked ? 'dn-closed' : ''} ${flash ? 'dn-flash' : ''}`}
@@ -502,7 +528,7 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
 
       <footer className="dn-foot nodrag">
         {reactions.map((r) => (
-          <ReactionChip key={r.emoji} r={r} />
+          <ReactionChip key={r.emoji} r={r} onSeen={ack} />
         ))}
         <div className="dn-pick">
           <button
@@ -550,7 +576,7 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
         {locked && (
           <button
             className="dn-locked"
-            onClick={() => setVoting(true)}
+            onClick={openVoting}
             title={node.closed ? 'Ветка закрыта — открыть голосование' : 'Ветка выше закрыта'}
           >
             {node.closed ? '🔒 Итог ветки' : '🔒'}
@@ -588,7 +614,7 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
         )}
         <button
           className={`dn-r dn-vote ${votes ? 'has' : ''}`}
-          onClick={() => setVoting(true)}
+          onClick={openVoting}
           title={votes ? `За закрытие ветки: ${node.closeVotes.join(', ')}` : 'Голосовать за закрытие ветки'}
         >
           🗳{votes ? ` ${votes}` : ''}

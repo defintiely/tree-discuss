@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import { useDoc } from '../store/useDoc';
 import { asAuthor, useMe } from '../store/useMe';
-import { awaitingMe } from '../store/awaiting';
+import { awaitingMe, freshResponses, type FreshItem } from '../store/awaiting';
 import { flyTo } from '../nodes/fly';
 import { Sheet } from './Sheet';
 import type { TreeNode } from '../types';
@@ -25,6 +25,14 @@ export function useAwaiting(): TreeNode[] {
   const reactions = useDoc((s) => s.reactions);
   const me = useMe((s) => s.name);
   return awaitingMe(nodes, reactions, me);
+}
+
+/** Свои сообщения с новыми откликами (белый нотиф). */
+export function useFresh(): FreshItem[] {
+  const nodes = useDoc((s) => s.nodes);
+  const reactions = useDoc((s) => s.reactions);
+  const me = useMe((s) => s.name);
+  return freshResponses(nodes, reactions, me);
 }
 
 function usePhone(): boolean {
@@ -68,29 +76,101 @@ export function useFeed() {
   };
 }
 
-/** Плашка в шапке: сколько ждут, нажатие открывает или прячет ленту. */
-export function FeedPill({ count, onClick, open }: { count: number; onClick: () => void; open: boolean }) {
-  if (!count && !open) return null;
+/**
+ * Плашка в шапке: красное — сколько ждут ответа, белое — на сколько своих
+ * сообщений пришли новые отклики. Нажатие открывает или прячет ленту.
+ */
+export function FeedPill({ count, fresh, onClick, open }: { count: number; fresh: number; onClick: () => void; open: boolean }) {
+  if (!count && !fresh && !open) return null;
   return (
-    <button className={`bar-await ${count ? '' : 'none'}`} onClick={onClick} title={open ? 'Скрыть ленту' : 'Ждут вашего ответа'}>
-      <span className="bar-await-dot" />
-      {count}
+    <button
+      className={`bar-await ${count ? '' : 'none'}`}
+      onClick={onClick}
+      title={open ? 'Скрыть ленту' : 'Ждут ответа и новые отклики на ваши сообщения'}
+    >
+      {(count > 0 || !fresh) && (
+        <>
+          <span className="bar-await-dot" />
+          {count}
+        </>
+      )}
+      {fresh > 0 && (
+        <span className="bar-fresh">
+          <span className="bar-fresh-dot" />
+          {fresh}
+        </span>
+      )}
     </button>
   );
 }
 
-function FeedList({ items, onPick }: { items: TreeNode[]; onPick: () => void }) {
+/** Подпись строки: первая строка текста узла. */
+function firstLine(n: TreeNode): string {
+  return n.text.trim().split('\n')[0];
+}
+
+function FeedList({ items, fresh, onPick }: { items: TreeNode[]; fresh: FreshItem[]; onPick: () => void }) {
   const rf = useReactFlow();
   const addReaction = useDoc((s) => s.addReaction);
+  const ack = useDoc((s) => s.ackResponses);
   const me = useMe((s) => s.name);
 
   if (!me) return <p className="feed-empty">Представьтесь — и здесь появятся сообщения, которые ждут вашего ответа.</p>;
-  if (!items.length) return <p className="feed-empty">Всё отвечено — ничего не ждёт.</p>;
 
+  return (
+    <div className="feed-scroll">
+      {items.length ? <WaitList items={items} onPick={onPick} rf={rf} addReaction={addReaction} /> : (
+        <p className="feed-empty">Всё отвечено — ничего не ждёт.</p>
+      )}
+      {fresh.length > 0 && (
+        <section className="feed-sec">
+          <header className="feed-sec-head">
+            <span className="feed-sec-title">
+              <span className="feed-fresh-dot" /> Отклики на ваши сообщения · {fresh.length}
+            </span>
+            <button className="feed-all" onClick={() => ack(fresh.map((f) => f.node.id))}>
+              Всё просмотрено
+            </button>
+          </header>
+          <ul className="feed-list">
+            {fresh.map(({ node: n, fresh: f }) => (
+              <li key={n.id} className="feed-item">
+                <button
+                  className="feed-go"
+                  onClick={() => {
+                    ack([n.id]);
+                    onPick();
+                    flyTo(rf, n.id);
+                  }}
+                >
+                  <span className="feed-resp">{f.map((x) => `${x.who} ${x.what}`).join(', ')}</span>
+                  {n.name && <strong className="feed-name">{n.name}</strong>}
+                  <span className="feed-text">{firstLine(n)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function WaitList({
+  items,
+  onPick,
+  rf,
+  addReaction,
+}: {
+  items: TreeNode[];
+  onPick: () => void;
+  rf: ReturnType<typeof useReactFlow>;
+  addReaction: (id: string, emoji: string, me: string) => void;
+}) {
   return (
     <ul className="feed-list">
       {items.map((n) => {
-        const line = n.text.trim().split('\n')[0];
+        const line = firstLine(n);
         return (
           <li key={n.id} className="feed-item">
             <button
@@ -121,7 +201,7 @@ function FeedList({ items, onPick }: { items: TreeNode[]; onPick: () => void }) 
 }
 
 /** Колонка справа (широкий экран). */
-export function FeedSide({ items, onHide }: { items: TreeNode[]; onHide: () => void }) {
+export function FeedSide({ items, fresh, onHide }: { items: TreeNode[]; fresh: FreshItem[]; onHide: () => void }) {
   return (
     <aside className="feed">
       <header className="feed-head">
@@ -130,16 +210,16 @@ export function FeedSide({ items, onHide }: { items: TreeNode[]; onHide: () => v
           ×
         </button>
       </header>
-      <FeedList items={items} onPick={() => {}} />
+      <FeedList items={items} fresh={fresh} onPick={() => {}} />
     </aside>
   );
 }
 
 /** Отдельное окно (телефон): тап по сообщению закрывает окно и ведёт к нему. */
-export function FeedSheet({ items, onClose }: { items: TreeNode[]; onClose: () => void }) {
+export function FeedSheet({ items, fresh, onClose }: { items: TreeNode[]; fresh: FreshItem[]; onClose: () => void }) {
   return (
     <Sheet title={`Ждут ответа${items.length ? ` · ${items.length}` : ''}`} onClose={onClose}>
-      <FeedList items={items} onPick={onClose} />
+      <FeedList items={items} fresh={fresh} onPick={onClose} />
     </Sheet>
   );
 }

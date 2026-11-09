@@ -34,6 +34,7 @@ export function nodesFromCsv(text: string): TreeNode[] {
       quote: (row.quote ?? '').trim(),
       closed: ['1', 'true', 'да'].includes((row.closed ?? '').trim().toLowerCase()),
       closeVotes: [],
+      seen: [],
     };
   });
 }

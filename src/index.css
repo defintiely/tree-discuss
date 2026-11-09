@@ -31,6 +31,14 @@ body { background: var(--bg); color: var(--ink); }
   background: #ef4444; box-shadow: 0 0 0 calc(2.5px * var(--inv-zoom, 1)) #fff;
 }
 
+/* Белый — новые отклики на своё сообщение: заметен на белой карточке за счёт контура.
+   Он нажимается (сброс), поэтому ловит указатель, в отличие от красного. */
+.dn-badge-fresh {
+  background: #fff; border: calc(2px * var(--inv-zoom, 1)) solid #64748b;
+  box-shadow: 0 0 0 calc(2px * var(--inv-zoom, 1)) #fff, 0 1px 4px rgba(16, 32, 44, 0.3);
+  pointer-events: auto; cursor: pointer; padding: 0; box-sizing: border-box;
+}
+
 .bar-await {
   flex: none; display: flex; align-items: center; gap: 6px; cursor: pointer;
   padding: 5px 11px; font-size: 13.5px; font-weight: 700; color: #b91c1c;
@@ -40,6 +48,26 @@ body { background: var(--bg); color: var(--ink); }
 .bar-await.none { color: var(--muted); background: #f1f5f9; border-color: var(--line); }
 .bar-await-dot { width: 9px; height: 9px; border-radius: 50%; background: #ef4444; }
 .bar-await.none .bar-await-dot { background: #94a3b8; }
+.bar-fresh { display: flex; align-items: center; gap: 5px; color: #475569; }
+.bar-fresh-dot, .feed-fresh-dot {
+  display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+  background: #fff; border: 2px solid #64748b; box-sizing: border-box;
+}
+
+.feed-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+.feed-scroll .feed-list { overflow: visible; }
+.feed-sec { border-top: 1px solid var(--line); margin-top: 4px; }
+.feed-sec-head {
+  display: flex; align-items: center; gap: 8px; padding: 10px 8px 2px 14px; font-size: 13px;
+}
+.feed-sec-title { flex: 1; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.feed-all {
+  flex: none; font-size: 12px; padding: 3px 9px; cursor: pointer; color: var(--ink);
+  background: #f1f5f9; border: 1px solid var(--line); border-radius: 12px;
+}
+.feed-all:hover { background: #e8eef5; }
+.feed-resp { font-size: 13px; font-weight: 600; }
+.sh-body .feed-sec-head { padding: 10px 0 2px; }
 
 .feed {
   width: 300px; flex: none; display: flex; flex-direction: column; min-height: 0;

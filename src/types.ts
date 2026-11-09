@@ -48,6 +48,11 @@ export type TreeNode = {
   closed: boolean;
   /** Ники участников, проголосовавших за закрытие ветки; один ник — один голос. */
   closeVotes: string[];
+  /**
+   * Отклики, которые автор уже видел (ключи responseKeys). Живёт в узле, а не
+   * в браузере: увиденное на телефоне не загорается снова на компьютере.
+   */
+  seen: string[];
 };
 
 export type Reaction = {
@@ -105,6 +110,7 @@ export function normalizeDoc(raw: Partial<DocState> & { nodes: Partial<TreeNode>
       name: typeof n.name === 'string' ? n.name.slice(0, NAME_MAX) : '',
       closed: Boolean(n.closed),
       closeVotes: Array.isArray(n.closeVotes) ? n.closeVotes : [],
+      seen: Array.isArray(n.seen) ? n.seen : [],
     })),
     reactions: (raw.reactions ?? []).map(normalizeReaction).filter((r) => reactionTotal(r) > 0),
     width: raw.width ?? width,

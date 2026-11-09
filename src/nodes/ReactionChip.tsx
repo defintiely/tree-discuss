@@ -11,7 +11,7 @@ const HOLD_MS = 550;
  * нет — ставится. Правый клик или долгое нажатие снимает одну безымянную:
  * её автор неизвестен, поэтому снять её может любой участник.
  */
-export function ReactionChip({ r }: { r: Reaction }) {
+export function ReactionChip({ r, onSeen }: { r: Reaction; onSeen?: () => void }) {
   const toggle = useDoc((s) => s.toggleReaction);
   const dropAnon = useDoc((s) => s.dropAnonReaction);
   const me = useMe((s) => s.name);
@@ -36,7 +36,10 @@ export function ReactionChip({ r }: { r: Reaction }) {
     <button
       className={`dn-r ${mine ? 'dn-r-mine' : ''}`}
       title={`${who}\n${hint}`}
+      // Навёл мышь или тронул плашку — автор посмотрел, кто отозвался: белый нотиф гаснет.
+      onPointerEnter={(e) => e.pointerType === 'mouse' && onSeen?.()}
       onClick={() => {
+        onSeen?.();
         if (held.current) {
           held.current = false;
           return;

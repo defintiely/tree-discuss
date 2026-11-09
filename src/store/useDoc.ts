@@ -5,6 +5,7 @@
 import { create } from 'zustand';
 import { KIND_TITLE, NAME_MAX, newId, normalizeDoc, reactionTotal, type DocState, type NodeId, type NodeKind, type Reaction, type TreeNode } from '../types';
 import { DEFAULT_COLOR, randomPastel } from '../colors';
+import { responseKeys } from './awaiting';
 import { DEFAULT_WIDTH, MAX_WIDTH, MIN_WIDTH } from '../layout';
 
 type DocStore = DocState & {
@@ -12,6 +13,8 @@ type DocStore = DocState & {
   addParticipant: (name: string) => void;
   toggleCloseVote: (id: NodeId, author: string) => void;
   setClosed: (id: NodeId, closed: boolean) => void;
+  /** Автор посмотрел отклики на эти узлы: белый нотиф на них гаснет. */
+  ackResponses: (ids: NodeId[]) => void;
   setWidth: (width: number) => void;
   addReply: (args: {
     parentId: NodeId;
@@ -76,6 +79,7 @@ const ROOT: TreeNode = {
   quote: '',
   closed: false,
   closeVotes: [],
+  seen: [],
 };
 
 /** Чистый документ новой комнаты: старое дерево в него не просачивается. */
@@ -109,6 +113,21 @@ export const useDoc = create<DocStore>((set, get) => ({
   setClosed: (id, closed) =>
     set((s) => ({ nodes: s.nodes.map((n) => (n.id === id ? { ...n, closed } : n)) })),
 
+  ackResponses: (ids) =>
+    set((s) => {
+      const want = new Set(ids);
+      let changed = false;
+      const nodes = s.nodes.map((n) => {
+        if (!want.has(n.id)) return n;
+        const keys = responseKeys(n, s.reactions);
+        // Список заменяется текущими откликами целиком: снятые реакции из него уходят сами.
+        if (keys.length === n.seen.length && keys.every((k) => n.seen.includes(k))) return n;
+        changed = true;
+        return { ...n, seen: keys };
+      });
+      return changed ? { nodes } : s;
+    }),
+
   // Ширина приезжает из облака и из чужих правок, поэтому границы держит стор,
   // а не разметка ползунка: битое значение иначе растянуло бы узлы на весь экран.
   setWidth: (width) => set({ width: clampWidth(width) }),
@@ -138,6 +157,7 @@ export const useDoc = create<DocStore>((set, get) => ({
       quote: quotes && parent ? parent.text.slice(anchorStart!, anchorEnd!) : '',
       closed: false,
       closeVotes: [],
+      seen: [],
     };
     set((s) => ({ nodes: [...s.nodes, node] }));
     return id;
