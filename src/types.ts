@@ -53,8 +53,27 @@ export type TreeNode = {
 export type Reaction = {
   nodeId: NodeId;
   emoji: string;
-  count: number;
+  /** Ники поставивших; один ник — одна такая реакция, снять её может только он. */
+  by: string[];
+  /**
+   * Безымянные реакции — из импорта (LLM знает только число) и из комнат,
+   * где реакции ещё не хранили ник. Чьи они, неизвестно, поэтому снять
+   * одну может любой участник.
+   */
+  anon: number;
 };
+
+/** Сколько всего людей поставили реакцию. */
+export function reactionTotal(r: Reaction): number {
+  return r.by.length + r.anon;
+}
+
+/** Реакция из старого документа ({count}) или из нового ({by, anon}). */
+function normalizeReaction(r: Partial<Reaction> & { count?: number }): Reaction {
+  const by = Array.isArray(r.by) ? r.by : [];
+  const anon = Number.isFinite(r.anon) ? Number(r.anon) : Number(r.count) || 0;
+  return { nodeId: r.nodeId as NodeId, emoji: r.emoji as string, by, anon: Math.max(0, anon) };
+}
 
 export type DocState = {
   nodes: TreeNode[];
@@ -87,7 +106,7 @@ export function normalizeDoc(raw: Partial<DocState> & { nodes: Partial<TreeNode>
       closed: Boolean(n.closed),
       closeVotes: Array.isArray(n.closeVotes) ? n.closeVotes : [],
     })),
-    reactions: raw.reactions ?? [],
+    reactions: (raw.reactions ?? []).map(normalizeReaction).filter((r) => reactionTotal(r) > 0),
     width: raw.width ?? width,
     participants: Array.isArray(raw.participants) ? raw.participants : [],
   };

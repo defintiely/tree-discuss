@@ -43,11 +43,17 @@ export function reactionsFromCsv(text: string): Reaction[] {
     header: true,
     skipEmptyLines: true,
   });
-  return res.data.map((row, i) => ({
-    nodeId: req(row.node_id, 'node_id', i + 2),
-    emoji: req(row.emoji, 'emoji', i + 2),
-    count: num(row.count, 'count', i + 2),
-  }));
+  return res.data.map((row, i) => {
+    // count — всего людей; by (необязательная) — ники через «;». Кого нет в by — безымянные.
+    const by = [...new Set((row.by ?? '').split(';').map((s) => s.trim()).filter(Boolean))];
+    const count = num(row.count, 'count', i + 2);
+    return {
+      nodeId: req(row.node_id, 'node_id', i + 2),
+      emoji: req(row.emoji, 'emoji', i + 2),
+      by,
+      anon: Math.max(0, count - by.length),
+    };
+  });
 }
 
 export function parseDoc(nodesCsv: string, reactionsCsv: string): DocState {

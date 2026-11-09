@@ -1,5 +1,5 @@
 import Papa from 'papaparse';
-import type { DocState, Reaction, TreeNode } from '../types';
+import { reactionTotal, type DocState, type Reaction, type TreeNode } from '../types';
 
 const BOM = '﻿';
 
@@ -26,8 +26,10 @@ export function nodesToCsv(nodes: TreeNode[]): string {
 }
 
 export function reactionsToCsv(reactions: Reaction[]): string {
-  const rows = reactions.map((r) => ({ node_id: r.nodeId, emoji: r.emoji, count: r.count }));
-  return Papa.unparse(rows, { columns: ['node_id', 'emoji', 'count'] });
+  // count — сколько всего поставили (так его понимает и LLM), by — ники через «;»;
+  // безымянные при чтении восстанавливаются как count минус ники.
+  const rows = reactions.map((r) => ({ node_id: r.nodeId, emoji: r.emoji, count: reactionTotal(r), by: r.by.join(';') }));
+  return Papa.unparse(rows, { columns: ['node_id', 'emoji', 'count', 'by'] });
 }
 
 export function downloadCsv(filename: string, content: string): void {

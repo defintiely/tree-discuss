@@ -3,7 +3,7 @@
  */
 
 import { create } from 'zustand';
-import { KIND_TITLE, NAME_MAX, newId, normalizeDoc, type DocState, type NodeId, type NodeKind, type TreeNode } from '../types';
+import { KIND_TITLE, NAME_MAX, newId, normalizeDoc, reactionTotal, type DocState, type NodeId, type NodeKind, type Reaction, type TreeNode } from '../types';
 import { DEFAULT_COLOR, randomPastel } from '../colors';
 import { DEFAULT_WIDTH, MAX_WIDTH, MIN_WIDTH } from '../layout';
 
@@ -28,11 +28,31 @@ type DocStore = DocState & {
   setName: (id: NodeId, name: string) => void;
   setPos: (id: NodeId, x: number, y: number) => void;
   setKind: (id: NodeId, kind: NodeKind) => void;
-  bumpReaction: (id: NodeId, emoji: string, delta: number) => void;
+  /** Своя реакция: есть — снимается, нет — ставится. */
+  toggleReaction: (id: NodeId, emoji: string, me: string) => void;
+  /** Поставить свою реакцию из палитры; уже стоит — ничего не меняется. */
+  addReaction: (id: NodeId, emoji: string, me: string) => void;
+  /** Снять одну безымянную реакцию. */
+  dropAnonReaction: (id: NodeId, emoji: string) => void;
   removeSubtree: (id: NodeId) => void;
   childrenOf: (id: NodeId | null) => TreeNode[];
   subtreeIds: (id: NodeId) => NodeId[];
 };
+
+/**
+ * Меняет одну реакцию узла (нет такой — начинает с пустой) и убирает её,
+ * если после правки на ней не осталось ни одного человека.
+ */
+function editReaction(list: Reaction[], id: NodeId, emoji: string, fn: (r: Reaction) => Reaction): Reaction[] {
+  const i = list.findIndex((r) => r.nodeId === id && r.emoji === emoji);
+  const next = fn(i === -1 ? { nodeId: id, emoji, by: [], anon: 0 } : list[i]);
+  const out = list.slice();
+  if (i === -1) {
+    if (reactionTotal(next) > 0) out.push(next);
+  } else if (reactionTotal(next) > 0) out[i] = next;
+  else out.splice(i, 1);
+  return out;
+}
 
 function clampWidth(w: unknown): number {
   const n = Number(w);
@@ -150,18 +170,22 @@ export const useDoc = create<DocStore>((set, get) => ({
       nodes: s.nodes.map((n) => (n.id === id ? { ...n, kind, title: KIND_TITLE[kind] } : n)),
     })),
 
-  bumpReaction: (id, emoji, delta) =>
-    set((s) => {
-      const i = s.reactions.findIndex((r) => r.nodeId === id && r.emoji === emoji);
-      if (i === -1) {
-        return delta > 0 ? { reactions: [...s.reactions, { nodeId: id, emoji, count: delta }] } : s;
-      }
-      const next = s.reactions.slice();
-      const count = next[i].count + delta;
-      if (count <= 0) next.splice(i, 1);
-      else next[i] = { ...next[i], count };
-      return { reactions: next };
-    }),
+  toggleReaction: (id, emoji, me) =>
+    set((s) => ({
+      reactions: editReaction(s.reactions, id, emoji, (r) =>
+        r.by.includes(me) ? { ...r, by: r.by.filter((n) => n !== me) } : { ...r, by: [...r.by, me] },
+      ),
+    })),
+
+  addReaction: (id, emoji, me) =>
+    set((s) => ({
+      reactions: editReaction(s.reactions, id, emoji, (r) => (r.by.includes(me) ? r : { ...r, by: [...r.by, me] })),
+    })),
+
+  dropAnonReaction: (id, emoji) =>
+    set((s) => ({
+      reactions: editReaction(s.reactions, id, emoji, (r) => ({ ...r, anon: Math.max(0, r.anon - 1) })),
+    })),
 
   removeSubtree: (id) => {
     const doomed = new Set(get().subtreeIds(id));

@@ -248,6 +248,11 @@ body { background: var(--bg); color: var(--ink); }
 .dn-r:hover { background: #f1f5f9; }
 /* Эмодзи реакции в полтора раза крупнее счётчика рядом; line-height 1 —
    чтобы крупный значок не раздувал высоту плашки. */
+/* Своя реакция подсвечена: видно, что тап её снимет. */
+.dn-r-mine { background: #e8f0fe; border-color: #93b4f0; }
+.dn-r-mine:hover { background: #dbe7fd; }
+/* Долгое нажатие на плашке — снятие безымянной, а не системное меню «копировать». */
+.dn-r { -webkit-touch-callout: none; user-select: none; }
 .dn-r-emo { font-size: 1.5em; line-height: 1; vertical-align: -0.12em; }
 .dn-add { color: var(--muted); }
 .dn-pick { position: relative; }

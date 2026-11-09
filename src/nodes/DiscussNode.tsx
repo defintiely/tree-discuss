@@ -15,6 +15,7 @@ import { autosize, followCaret } from './followCaret';
 import { panGesture } from './panGesture';
 import { flyTo, useFlash } from './fly';
 import { Sheet } from '../ui/Sheet';
+import { ReactionChip } from './ReactionChip';
 
 /** Сетка 7×7, ряд за рядом — от одобрения к злости, чтобы нужное настроение
  *  искалось глазами по строке, а не по всей палитре. */
@@ -52,7 +53,7 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
   const setText = useDoc((s) => s.setText);
   const setName = useDoc((s) => s.setName);
   const setKind = useDoc((s) => s.setKind);
-  const bumpReaction = useDoc((s) => s.bumpReaction);
+  const addReaction = useDoc((s) => s.addReaction);
   const removeSubtree = useDoc((s) => s.removeSubtree);
   const subtreeIds = useDoc((s) => s.subtreeIds);
   const setColor = useDoc((s) => s.setColor);
@@ -450,9 +451,7 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
 
       <footer className="dn-foot nodrag">
         {reactions.map((r) => (
-          <button key={r.emoji} className="dn-r" onClick={() => asAuthor(() => bumpReaction(node!.id, r.emoji, 1))}>
-            <span className="dn-r-emo">{r.emoji}</span> {r.count}
-          </button>
+          <ReactionChip key={r.emoji} r={r} />
         ))}
         <div className="dn-pick">
           <button
@@ -486,7 +485,7 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
                     key={e}
                     onClick={() => {
                       setPicker(null);
-                      asAuthor(() => bumpReaction(node!.id, e, 1));
+                      asAuthor((me) => addReaction(node!.id, e, me));
                     }}
                   >
                     {e}
