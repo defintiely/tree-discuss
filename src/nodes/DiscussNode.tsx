@@ -6,7 +6,8 @@ import { useDoc } from '../store/useDoc';
 import { childrenOf, closedAbove as isClosedAbove, treeIndex } from '../store/treeIndex';
 import { useAnchors } from '../edges/anchors';
 import { estimateHeight, fullHeight, LOD_ZOOM } from './lod';
-import { asAuthor } from '../store/useMe';
+import { asAuthor, useMe } from '../store/useMe';
+import { isAwaiting } from '../store/awaiting';
 import { sliceText, placeReply } from './segments';
 import { KIND_TITLE, NAME_MAX, type NodeKind, type TreeNode } from '../types';
 import { inkFor, lineFor } from '../colors';
@@ -47,6 +48,9 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
   const reactions = useDoc(useShallow((s) => s.reactions.filter((r) => r.nodeId === nodeId)));
   /** Закрыт кто-то из предков: ветка приглушена вместе с ним. */
   const closedAbove = useDoc((s) => isClosedAbove(s.nodes, nodeId));
+  /** Сообщение ждёт ответа того, кто сейчас пишет: красный кружок на углу. */
+  const me = useMe((s) => s.name);
+  const awaiting = useDoc((s) => isAwaiting(s.nodes, s.reactions, me, nodeId));
   /** Дальний зум: вместо текста серые полосы. Перерисовка — только при пересечении порога. */
   const far = useStore((s) => s.transform[2] < LOD_ZOOM);
   const addReply = useDoc((s) => s.addReply);
@@ -195,6 +199,8 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
     // элементом с градиентом. Размер тот же, что у полного узла, иначе стрелки
     // и соседи прыгали бы при переходе через порог зума.
     return (
+      <>
+      {awaiting && <span className="dn-badge" title="Ждёт вашего ответа" />}
       <div
         className={`dn dn-${node.kind} dn-sketch ${selected ? 'dn-sel' : ''} ${locked ? 'dn-closed' : ''} ${flash ? 'dn-flash' : ''}`}
         style={{ borderTopColor: lineFor(node.color), width, height: fullHeight.get(nodeId) ?? estimateHeight(node.text, width) }}
@@ -210,6 +216,7 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
         <div className={`dn-sketch-lines ${TOUCH ? 'nodrag' : ''}`} {...(TOUCH ? pan : {})} />
         <Handle type="source" position={Position.Right} className="dn-handle" />
       </div>
+      </>
     );
   }
   const segments = sliceText(node.text, children);
@@ -290,6 +297,8 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
   const votes = node.closeVotes.length;
 
   return (
+    <>
+    {awaiting && <span className="dn-badge" title="Ждёт вашего ответа" />}
     <div
       ref={rootRef}
       className={`dn dn-${node.kind} ${selected ? 'dn-sel' : ''} ${locked ? 'dn-closed' : ''} ${flash ? 'dn-flash' : ''}`}
@@ -564,6 +573,7 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
       )}
       <Handle type="source" position={Position.Right} className="dn-handle" />
     </div>
+    </>
   );
 }
 

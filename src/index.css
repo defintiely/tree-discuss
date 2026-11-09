@@ -18,7 +18,72 @@ body { background: var(--bg); color: var(--ink); }
 .app { display: flex; flex-direction: column; height: 100%; }
 /* Канвас по умолчанию просит height: 100% — вместе с шапкой это больше экрана,
    и флекс ужимал шапку ниже кнопки ника. Канвас забирает только остаток. */
-.app > .react-flow { flex: 1 1 0; min-height: 0; height: auto; }
+.main { flex: 1 1 0; min-height: 0; display: flex; }
+.main > .react-flow { flex: 1 1 0; min-width: 0; height: auto; }
+
+/* ── нотиф «ждёт ответа» и лента ──────────────────────── */
+/* Кружок висит рядом с карточкой (снаружи силуэта, у которого края обрезаются)
+   и держит 16px на экране при любом масштабе: --inv-zoom пишет App. */
+.dn-badge {
+  position: absolute; top: 0; right: 0; z-index: 5; pointer-events: none;
+  width: calc(16px * var(--inv-zoom, 1)); height: calc(16px * var(--inv-zoom, 1));
+  transform: translate(40%, -40%); border-radius: 50%;
+  background: #ef4444; box-shadow: 0 0 0 calc(2.5px * var(--inv-zoom, 1)) #fff;
+}
+
+.bar-await {
+  flex: none; display: flex; align-items: center; gap: 6px; cursor: pointer;
+  padding: 5px 11px; font-size: 13.5px; font-weight: 700; color: #b91c1c;
+  background: #fef2f2; border: 1px solid #fecaca; border-radius: 18px;
+}
+.bar-await:hover { background: #fee2e2; }
+.bar-await.none { color: var(--muted); background: #f1f5f9; border-color: var(--line); }
+.bar-await-dot { width: 9px; height: 9px; border-radius: 50%; background: #ef4444; }
+.bar-await.none .bar-await-dot { background: #94a3b8; }
+
+.feed {
+  width: 300px; flex: none; display: flex; flex-direction: column; min-height: 0;
+  background: var(--card); border-left: 1px solid var(--line);
+}
+.feed-head {
+  display: flex; align-items: center; gap: 8px; padding: 8px 8px 6px 14px; font-size: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.feed-head strong { flex: 1; }
+.feed-list { list-style: none; margin: 0; padding: 6px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.feed .feed-list { flex: 1; }
+.feed-item {
+  display: flex; align-items: stretch; border: 1px solid var(--line); border-radius: 10px;
+  background: #fff; overflow: hidden;
+}
+.feed-go {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  padding: 8px 10px; text-align: left; border: none; background: none; cursor: pointer; color: var(--ink);
+}
+.feed-go:hover { background: #f8fafc; }
+.feed-who {
+  font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 9px;
+  border: 1px solid rgba(0, 0, 0, 0.1); max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.feed-name { font-size: 13px; }
+.feed-text {
+  font-size: 13px; color: var(--muted); line-height: 1.35; max-width: 100%;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.feed-seen {
+  flex: none; width: 46px; font-size: 20px; cursor: pointer;
+  border: none; border-left: 1px solid var(--line); background: #fcfdfe;
+}
+.feed-seen:hover { background: #f1f5f9; }
+.feed-empty { margin: 0; padding: 14px; color: var(--muted); font-size: 13.5px; line-height: 1.5; }
+/* В окне на телефоне у Sheet свои поля — список встаёт в них без своих. */
+.sh-body .feed-list { padding: 0; }
+.sh-body .feed-empty { padding: 4px 0 8px; }
+@media (pointer: coarse) {
+  .feed-go { padding: 11px 12px; }
+  .feed-seen { width: 54px; font-size: 22px; }
+}
 
 /* ── шапка: только меню, заголовок и автор ────────────── */
 /* Высота шапки — по кнопке ника плюс тонкие поля: в горизонтальной ориентации

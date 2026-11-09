@@ -7,6 +7,7 @@ import {
   ReactFlowProvider,
   useReactFlow,
   useStore,
+  useStoreApi,
   type Edge,
   type Node as RFNode,
   type NodeChange,
@@ -28,6 +29,7 @@ import { useSync } from './rooms/useSync';
 import { clearRoomInUrl, roomLink } from './rooms/url';
 import { layoutTree, MAX_WIDTH, MIN_WIDTH } from './layout';
 import { AuthorPicker } from './ui/AuthorPicker';
+import { FeedPill, FeedSheet, FeedSide, useAwaiting, useFeed } from './ui/AwaitingFeed';
 import type { TreeNode } from './types';
 import { estimateHeight, fullHeight, LOD_ZOOM, MAX_ZOOM, MIN_ZOOM } from './nodes/lod';
 
@@ -179,6 +181,24 @@ function Canvas() {
   );
   const far = useStore((s) => s.transform[2] < LOD_ZOOM);
 
+  // Нотифы на узлах держат один размер на экране при любом масштабе карты:
+  // CSS умножает их размер на обратный масштаб. Переменная пишется напрямую,
+  // без перерисовки React — масштаб меняется на каждом кадре щипка и колёсика.
+  const flowStore = useStoreApi();
+  useEffect(() => {
+    let last = 0;
+    const put = (zoom: number) => {
+      if (zoom === last) return;
+      last = zoom;
+      document.documentElement.style.setProperty('--inv-zoom', String(1 / zoom));
+    };
+    put(flowStore.getState().transform[2]);
+    return flowStore.subscribe((s) => put(s.transform[2]));
+  }, [flowStore]);
+
+  const awaiting = useAwaiting();
+  const feed = useFeed();
+
   function sortNodes() {
     // Высоты — замеренные самими узлами при полной отрисовке; узел за кадром в DOM
     // отсутствует, для ни разу не нарисованного берётся оценка по длине текста.
@@ -228,6 +248,7 @@ function Canvas() {
           <span className={`bar-dot bar-dot-${roomSync}`} title={roomError ?? syncText} />
         )}
         <span className="bar-grow" />
+        <FeedPill count={awaiting.length} onClick={feed.toggle} open={feed.sideOpen || feed.sheetOpen} />
         <button className="bar-me" onClick={() => openPicker()} title="Сменить автора">
           {me || 'Представиться'}
         </button>
@@ -281,6 +302,9 @@ function Canvas() {
           {note} <span className="note-x">закрыть</span>
         </div>
       )}
+      {feed.sheetOpen && <FeedSheet items={awaiting} onClose={feed.closeSheet} />}
+      {/* Лента — колонка рядом с картой, а не поверх: сообщения у правого края не прячутся под ней. */}
+      <div className="main">
       <ReactFlow
         nodes={rfNodes}
         edges={rfEdges}
@@ -302,6 +326,8 @@ function Canvas() {
         <Background gap={20} color="#e2e8f0" />
         <Controls showInteractive={false} />
       </ReactFlow>
+      {feed.sideOpen && <FeedSide items={awaiting} onHide={feed.hideSide} />}
+      </div>
     </div>
   );
 }
