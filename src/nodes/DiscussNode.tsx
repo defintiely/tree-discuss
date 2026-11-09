@@ -16,15 +16,17 @@ import { panGesture } from './panGesture';
 import { flyTo, useFlash } from './fly';
 import { Sheet } from '../ui/Sheet';
 
-/** Сетка 6×6, ряд за рядом — от одобрения к злости, чтобы нужное настроение
+/** Сетка 7×7, ряд за рядом — от одобрения к злости, чтобы нужное настроение
  *  искалось глазами по строке, а не по всей палитре. */
+const PAL_COLS = 7;
 const PALETTE = [
-  '👍', '❤️', '🔥', '🎉', '👏', '💯', // восторг
-  '🎯', '✅', '💡', '🚀', '🤝', '🙏', // согласие, идея
-  '😂', '🤣', '😅', '🙈', '🤡', '💀', // смешно
-  '🤔', '👀', '🧐', '🤷', '😐', '⏳', // думаю, нейтрально
-  '👎', '😕', '😢', '😬', '🙄', '⚠️', // сомнение, огорчение
-  '😡', '🤬', '🤦', '💩', '🗑️', '❌', // злость
+  '👍', '❤️', '🔥', '🎉', '👏', '💯', '🤩', // восторг
+  '➕', '🎯', '✅', '☝️', '💡', '🚀', '🙏', // согласие, идея
+  '😂', '🤣', '😅', '😆', '🙈', '🤡', '💀', // смешно
+  '🤯', '😮', '😱', '🥹', '🥲', '🫶', '😍', // удивление, тронут
+  '🤔', '👀', '🧐', '🤷', '😐', '⏳', '⚠️', // думаю, осторожно
+  '➖', '👎', '😕', '😔', '😢', '😰', '😬', // сомнение, огорчение
+  '😤', '🙄', '😡', '🤬', '🤦', '💩', '❌', // злость
 ];
 
 const KIND_ICON: Record<NodeKind, string> = { root: '◉', reply: '↳', conclusion: '★' };
@@ -449,7 +451,7 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
       <footer className="dn-foot nodrag">
         {reactions.map((r) => (
           <button key={r.emoji} className="dn-r" onClick={() => asAuthor(() => bumpReaction(node!.id, r.emoji, 1))}>
-            {r.emoji} {r.count}
+            <span className="dn-r-emo">{r.emoji}</span> {r.count}
           </button>
         ))}
         <div className="dn-pick">
@@ -461,10 +463,10 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
               const r = addRef.current?.getBoundingClientRect();
               if (!r) return;
               // Размер сетки зависит от пальца/мыши (крупнее на тач), поэтому
-              // берётся из того же CSS: ячейка 30px мышью, 42px пальцем.
-              const cell = window.matchMedia('(pointer: coarse)').matches ? 42 : 30;
-              const W = cell * 6 + 12;
-              const H = cell * 6 + 12;
+              // берётся из того же CSS: ячейка 30px мышью, 40px пальцем.
+              const cell = window.matchMedia('(pointer: coarse)').matches ? 40 : 30;
+              const W = cell * PAL_COLS + 12;
+              const H = cell * Math.ceil(PALETTE.length / PAL_COLS) + 12;
               // Сверху места не хватает (узел у верхнего края) — открываем вниз.
               const top = r.top - H - 6 >= 8 ? r.top - H - 6 : Math.min(r.bottom + 6, window.innerHeight - H - 8);
               setPicker({
