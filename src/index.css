@@ -251,13 +251,16 @@ body { background: var(--bg); color: var(--ink); }
 .dn-pal {
   /* Портал в body: палитра не принадлежит стопке узлов канваса и поэтому
      не уходит ни под соседний узел, ни под край своего. */
-  position: fixed; z-index: 1000; display: flex;
-  gap: 2px; padding: 5px; background: #fff; border: 1px solid var(--line);
+  position: fixed; z-index: 1000; display: grid;
+  /* Размер ячейки согласован с расчётом позиции в DiscussNode (30 / 42px). */
+  grid-template-columns: repeat(6, 30px); grid-auto-rows: 30px;
+  padding: 6px; background: #fff; border: 1px solid var(--line);
   border-radius: 8px; box-shadow: 0 6px 20px rgba(16,32,44,0.22);
 }
 .dn-pal button {
-  border: none; background: none; cursor: pointer; font-size: 16px;
-  padding: 2px 4px; border-radius: 5px;
+  border: none; background: none; cursor: pointer; font-size: 18px;
+  padding: 0; border-radius: 5px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
 }
 .dn-pal button:hover { background: #f1f5f9; }
 
@@ -277,15 +280,18 @@ body { background: var(--bg); color: var(--ink); }
 .dn-grow { flex: 1; }
 .dn-vote { color: var(--muted); }
 .dn-vote.has { color: var(--ink); background: #f1f5f9; font-weight: 600; }
-.dn-lock {
-  border: none; background: rgba(255, 255, 255, 0.55); border-radius: 9px;
-  padding: 0 5px; font-size: 12px; line-height: 18px; cursor: pointer;
-}
 
-/* Закрытая ветка остаётся читаемой, но уходит на второй план. */
-/* Только прозрачность: filter заставлял бы браузер держать под каждый закрытый
-   узел отдельный слой и пересчитывать его при каждом сдвиге канваса. */
-.dn-closed { opacity: 0.5; }
+/* Закрытая ветка читается полностью, её выделяет серая рамка. Рамка — outline:
+   цвет верхней границы узла приходит инлайном, и border его бы не перебил,
+   а outline не сдвигает раскладку узла. */
+.dn-closed { outline: 3px solid #9aa3ae; outline-offset: 0; }
+/* Замок с подписью стоит на месте кнопок ответа: отвечать в закрытой ветке нельзя. */
+.dn-locked {
+  border: 1px solid #c3c9d1; background: #eef1f4; color: #4b5563;
+  border-radius: 9px; padding: 1px 8px; font-size: 12px; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+}
+.dn-locked:hover { background: #e2e7ec; }
 
 /* Силуэт узла на дальнем зуме: шапка цвета узла и серые полосы вместо строк. */
 .dn-sketch { display: flex; flex-direction: column; overflow: hidden; }
@@ -302,7 +308,6 @@ body { background: var(--bg); color: var(--ink); }
   background: repeating-linear-gradient(to bottom, #d5dce5 0 18px, transparent 18px 44px);
   border-radius: 4px;
 }
-.dn-closed:hover { opacity: 0.85; }
 
 /* ── палец ────────────────────────────────────────────── */
 @media (pointer: coarse) {
@@ -316,7 +321,8 @@ body { background: var(--bg); color: var(--ink); }
   .dn-kind { font-size: 13px; padding: 4px 6px; }
   .dn-x { font-size: 22px; padding: 0 6px; }
   .reply-pop { padding: 9px 14px; font-size: 14px; }
-  .dn-pal button { font-size: 22px; padding: 6px 7px; }
+  .dn-pal { grid-template-columns: repeat(6, 42px); grid-auto-rows: 42px; }
+  .dn-pal button { font-size: 24px; }
 }
 
 .quoted {

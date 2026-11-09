@@ -54,7 +54,7 @@ export function VotePanel({
         <p className="vp-none">Пока никто не голосовал.</p>
       )}
 
-      {closedAbove && <p className="vp-above">Ветка выше уже закрыта — эта приглушена вместе с ней.</p>}
+      {closedAbove && <p className="vp-above">Ветка выше уже закрыта — эта закрыта вместе с ней.</p>}
 
       <div className="vp-actions">
         <button className="vp-vote" onClick={() => asAuthor((a) => toggleCloseVote(node.id, a))}>

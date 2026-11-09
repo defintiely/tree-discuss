@@ -16,7 +16,16 @@ import { panGesture } from './panGesture';
 import { flyTo, useFlash } from './fly';
 import { Sheet } from '../ui/Sheet';
 
-const PALETTE = ['👍', '👎', '🔥', '🤔', '❤️', '😂', '🎯', '⚠️'];
+/** Сетка 6×6, ряд за рядом — от одобрения к злости, чтобы нужное настроение
+ *  искалось глазами по строке, а не по всей палитре. */
+const PALETTE = [
+  '👍', '❤️', '🔥', '🎉', '👏', '💯', // восторг
+  '🎯', '✅', '💡', '🚀', '🤝', '🙏', // согласие, идея
+  '😂', '🤣', '😅', '🙈', '🤡', '💀', // смешно
+  '🤔', '👀', '🧐', '🤷', '😐', '⏳', // думаю, нейтрально
+  '👎', '😕', '😢', '😬', '🙄', '⚠️', // сомнение, огорчение
+  '😡', '🤬', '🤦', '💩', '🗑️', '❌', // злость
+];
 
 const KIND_ICON: Record<NodeKind, string> = { root: '◉', reply: '↳', conclusion: '★' };
 
@@ -287,11 +296,6 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
       <header className="dn-head" style={{ background: node.color, color: inkFor(node.color) }} {...headNav}>
         <span className="dn-icon">{KIND_ICON[node.kind]}</span>
         <span className="dn-title">{node.name || node.title}</span>
-        {node.closed && (
-          <button className="dn-lock nodrag" onClick={() => setVoting(true)} title="Ветка закрыта — открыть голосование">
-            🔒
-          </button>
-        )}
         {node.author && (
           <span className="dn-author" title={`Автор: ${node.author}`}>
             {node.author}
@@ -456,9 +460,15 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
               if (picker) return setPicker(null);
               const r = addRef.current?.getBoundingClientRect();
               if (!r) return;
-              const W = 250;
+              // Размер сетки зависит от пальца/мыши (крупнее на тач), поэтому
+              // берётся из того же CSS: ячейка 30px мышью, 42px пальцем.
+              const cell = window.matchMedia('(pointer: coarse)').matches ? 42 : 30;
+              const W = cell * 6 + 12;
+              const H = cell * 6 + 12;
+              // Сверху места не хватает (узел у верхнего края) — открываем вниз.
+              const top = r.top - H - 6 >= 8 ? r.top - H - 6 : Math.min(r.bottom + 6, window.innerHeight - H - 8);
               setPicker({
-                top: Math.max(8, r.top - 44),
+                top: Math.max(8, top),
                 left: Math.min(Math.max(8, r.left), window.innerWidth - W - 8),
               });
             }}
@@ -485,6 +495,15 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
             )}
         </div>
         <span className="dn-grow" />
+        {locked && (
+          <button
+            className="dn-locked"
+            onClick={() => setVoting(true)}
+            title={node.closed ? 'Ветка закрыта — открыть голосование' : 'Ветка выше закрыта'}
+          >
+            {node.closed ? '🔒 Итог ветки' : '🔒'}
+          </button>
+        )}
         {!locked && (
           <>
             <button
