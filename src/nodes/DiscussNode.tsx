@@ -17,6 +17,7 @@ import { panGesture } from './panGesture';
 import { flyTo, useFlash } from './fly';
 import { Sheet } from '../ui/Sheet';
 import { ReactionChip } from './ReactionChip';
+import { useEditing } from './editing';
 
 /** Сетка 8×7, ряд за рядом — от одобрения к злости, чтобы нужное настроение
  *  искалось глазами по строке, а не по всей палитре. */
@@ -128,6 +129,29 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
     vv?.addEventListener('resize', onResize);
     return () => vv?.removeEventListener('resize', onResize);
   }, [editing]);
+
+  // Пока правка идёт, канвас не выкидывает узлы за кадром (см. editing.ts).
+  useEffect(() => {
+    if (!editing) return;
+    useEditing.setState({ id: nodeId });
+    return () => {
+      if (useEditing.getState().id === nodeId) useEditing.setState({ id: null });
+    };
+  }, [editing, nodeId]);
+
+  // Страховка: если узел всё же уходит из DOM посреди правки, набранное
+  // сохраняется, а не пропадает молча вместе с полем ввода.
+  const unsaved = useRef<{ text: string; name: string } | null>(null);
+  unsaved.current = editing ? { text: draft, name: nameDraft } : null;
+  useEffect(
+    () => () => {
+      const u = unsaved.current;
+      if (!u) return;
+      useDoc.getState().setText(nodeId, u.text);
+      useDoc.getState().setName(nodeId, u.name);
+    },
+    [nodeId],
+  );
 
   useEffect(() => {
     if (!picker) return;
@@ -286,6 +310,24 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
     setText(node!.id, draft);
     setName(node!.id, nameDraft);
     setEditing(false);
+    keepInView();
+  }
+
+  /**
+   * После правки узел обычно короче поля ввода (на телефоне шрифт поля крупнее),
+   * и камера, ехавшая за кареткой, может смотреть ниже его конца — экран пуст.
+   * Тогда низ узла подтягивается в кадр; если узел виден, камера не двигается.
+   */
+  function keepInView() {
+    requestAnimationFrame(() => {
+      const card = rootRef.current;
+      const pane = document.querySelector('.react-flow')?.getBoundingClientRect();
+      if (!card || !pane) return;
+      const r = card.getBoundingClientRect();
+      if (r.bottom > pane.top + 40) return;
+      const { x, y, zoom } = rf.getViewport();
+      void rf.setViewport({ x, y: y + (pane.top + pane.height * 0.6 - r.bottom), zoom }, { duration: 300 });
+    });
   }
 
   function doDelete() {

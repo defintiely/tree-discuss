@@ -19,6 +19,7 @@ import { DiscussNode } from './nodes/DiscussNode';
 import { QuoteEdge, quoteStart } from './edges/QuoteEdge';
 import { useAnchors } from './edges/anchors';
 import { flyTo } from './nodes/fly';
+import { useEditing } from './nodes/editing';
 import { exportDoc } from './csv/serialize';
 import { parseDoc } from './csv/parse';
 import { loadDoc, makeDebouncedSave } from './storage/persist';
@@ -196,6 +197,7 @@ function Canvas() {
     return flowStore.subscribe((s) => put(s.transform[2]));
   }, [flowStore]);
 
+  const editingId = useEditing((s) => s.id);
   const awaiting = useAwaiting();
   const feed = useFeed();
 
@@ -321,7 +323,9 @@ function Canvas() {
         // не платит за текст всего дерева. Издалека отсев выключен — в кадре и так
         // почти всё, силуэты дешёвые, а сам пересчёт видимости на каждом кадре
         // панорамы обходился дороже, чем рисование.
-        onlyRenderVisibleElements={!far}
+        // Во время правки отсев тоже выключен: иначе после большой вставки узел
+        // со старой высотой счёлся бы ушедшим за кадр и пропал вместе с текстом.
+        onlyRenderVisibleElements={!far && !editingId}
       >
         <Background gap={20} color="#e2e8f0" />
         <Controls showInteractive={false} />
