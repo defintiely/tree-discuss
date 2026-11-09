@@ -18,17 +18,17 @@ import { flyTo, useFlash } from './fly';
 import { Sheet } from '../ui/Sheet';
 import { ReactionChip } from './ReactionChip';
 
-/** Сетка 7×7, ряд за рядом — от одобрения к злости, чтобы нужное настроение
+/** Сетка 8×7, ряд за рядом — от одобрения к злости, чтобы нужное настроение
  *  искалось глазами по строке, а не по всей палитре. */
-const PAL_COLS = 7;
+const PAL_COLS = 8;
 const PALETTE = [
-  '👍', '❤️', '🔥', '🎉', '👏', '💯', '🤩', // восторг
-  '➕', '🎯', '✅', '☝️', '💡', '🚀', '🙏', // согласие, идея
-  '😂', '🤣', '😅', '😆', '🙈', '🤡', '💀', // смешно
-  '🤯', '😮', '😱', '🥹', '🥲', '🫶', '😍', // удивление, тронут
-  '🤔', '👀', '🧐', '🤷', '😐', '⏳', '⚠️', // думаю, осторожно
-  '➖', '👎', '😕', '😔', '😢', '😰', '😬', // сомнение, огорчение
-  '😤', '🙄', '😡', '🤬', '🤦', '💩', '❌', // злость
+  '👍', '❤️', '🔥', '🎉', '👏', '💯', '🤩', '🥳', // восторг
+  '➕', '🤝', '🎯', '✅', '☝️', '💡', '🚀', '🙏', // согласие, идея
+  '😂', '🤣', '😅', '😆', '🙃', '🙈', '🤡', '💀', // смешно
+  '🤯', '😮', '😳', '😱', '🥹', '🥲', '🫶', '😍', // удивление, тронут
+  '🤔', '👀', '🧐', '🤨', '🤷', '😐', '⏳', '⚠️', // думаю, осторожно
+  '➖', '👎', '😕', '😟', '😔', '😢', '😰', '😬', // сомнение, огорчение
+  '😤', '🙄', '😡', '🤬', '🤦', '💩', '🗑️', '❌', // злость
 ];
 
 const KIND_ICON: Record<NodeKind, string> = { root: '◉', reply: '↳', conclusion: '★' };
@@ -471,8 +471,8 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
               const r = addRef.current?.getBoundingClientRect();
               if (!r) return;
               // Размер сетки зависит от пальца/мыши (крупнее на тач), поэтому
-              // берётся из того же CSS: ячейка 30px мышью, 40px пальцем.
-              const cell = window.matchMedia('(pointer: coarse)').matches ? 40 : 30;
+              // берётся из того же CSS: ячейка 30px мышью, 36px пальцем.
+              const cell = window.matchMedia('(pointer: coarse)').matches ? 36 : 30;
               const W = cell * PAL_COLS + 12;
               const H = cell * Math.ceil(PALETTE.length / PAL_COLS) + 12;
               // Сверху места не хватает (узел у верхнего края) — открываем вниз.
@@ -516,6 +516,8 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
         )}
         {!locked && (
           <>
+            {/* Дописать можно только своё: чужая реплика — повод ответить, а не править её текст. */}
+            {(!node.author || node.author === me) && (
             <button
               className="dn-r"
               onClick={() =>
@@ -527,6 +529,7 @@ function DiscussNodeImpl({ data, selected }: NodeProps) {
             >
               + Дописать
             </button>
+            )}
             <button
               className="dn-r dn-reply"
               onClick={() =>

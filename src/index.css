@@ -325,8 +325,8 @@ body { background: var(--bg); color: var(--ink); }
   /* Портал в body: палитра не принадлежит стопке узлов канваса и поэтому
      не уходит ни под соседний узел, ни под край своего. */
   position: fixed; z-index: 1000; display: grid;
-  /* Размер ячейки и число колонок согласованы с расчётом позиции в DiscussNode (30 / 40px, 7 колонок). */
-  grid-template-columns: repeat(7, 30px); grid-auto-rows: 30px;
+  /* Размер ячейки и число колонок согласованы с расчётом позиции в DiscussNode (30 / 36px, 8 колонок). */
+  grid-template-columns: repeat(8, 30px); grid-auto-rows: 30px;
   padding: 6px; background: #fff; border: 1px solid var(--line);
   border-radius: 8px; box-shadow: 0 6px 20px rgba(16,32,44,0.22);
 }
@@ -394,8 +394,8 @@ body { background: var(--bg); color: var(--ink); }
   .dn-kind { font-size: 13px; padding: 4px 6px; }
   .dn-x { font-size: 22px; padding: 0 6px; }
   .reply-pop { padding: 9px 14px; font-size: 14px; }
-  /* 7 × 40px + поля = 292px: влезает и в узкий телефон шириной 320px. */
-  .dn-pal { grid-template-columns: repeat(7, 40px); grid-auto-rows: 40px; }
+  /* 8 × 36px + поля = 300px: влезает и в узкий телефон шириной 320px. */
+  .dn-pal { grid-template-columns: repeat(8, 36px); grid-auto-rows: 36px; }
   .dn-pal button { font-size: 24px; }
 }
 
